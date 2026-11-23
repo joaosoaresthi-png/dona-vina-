@@ -264,7 +264,7 @@
       <div class="sticky-nav">
         <div class="search-box">
           <i data-lucide="search"></i>
-          <input type="text" id="cust-search-input" placeholder="Buscar lanche, bebida ou ingrediente..." oninput="renderCustomerMenu()" />
+          <input type="text" id="cust-search-input" placeholder="Buscar item no cardápio..." oninput="renderCustomerMenu()" />
         </div>
         <div id="cust-category-tabs" class="category-tabs"></div>
       </div>
@@ -432,7 +432,10 @@
         <div class="panel-card">
           <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:18px;">
             <div><h3 style="font-size:1.05rem;font-weight:800;">Cardápio & Produtos</h3><p style="font-size:0.8rem;color:var(--text-muted);">Adicione, edite fotos pela câmera ou dispositivo e complementos</p></div>
-            <button type="button" class="btn btn-primary" onclick="openProductEditor()"><i data-lucide="plus" style="width:16px;height:16px;"></i> Novo Produto</button>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button type="button" class="btn btn-outline" onclick="openImportMenuModal()"><i data-lucide="upload" style="width:16px;height:16px;"></i> Importar Cardápio (JSON)</button>
+              <button type="button" class="btn btn-primary" onclick="openProductEditor()"><i data-lucide="plus" style="width:16px;height:16px;"></i> Novo Produto</button>
+            </div>
           </div>
           <div id="admin-products-list" class="products-grid"></div>
         </div>
@@ -602,7 +605,10 @@
             <div class="form-group"><label class="form-label">Horário de Funcionamento</label><input type="text" id="set-hours" class="form-input" /></div>
             <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-top:16px;">
               <button type="submit" class="btn btn-primary">Salvar Configurações na Nuvem</button>
-              <button type="button" class="btn btn-outline btn-sm" onclick="exportBackupJSON()">Exportar Backup JSON</button>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button type="button" class="btn btn-dark btn-sm" onclick="openImportMenuModal()">Importar Cardápio (JSON)</button>
+                <button type="button" class="btn btn-outline btn-sm" onclick="exportBackupJSON()">Exportar Backup JSON</button>
+              </div>
             </div>
           </form>
         </div>
@@ -616,8 +622,8 @@
             <p style="font-size:0.82rem;color:var(--text-muted);">Crie o acesso individual do cliente e gere o link exclusivo do cardápio dele.</p>
           </div>
           <form onsubmit="createSaasTenant(event)" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(210px, 1fr));gap:12px;align-items:end;">
-            <div><label class="form-label">Nome do Restaurante *</label><input type="text" id="saas-store-name" class="form-input" placeholder="Ex: Pizzaria Bella Napoli" required oninput="autoSlugifySaas(this.value)" /></div>
-            <div><label class="form-label">Link Único (Slug) *</label><input type="text" id="saas-store-slug" class="form-input" placeholder="pizzaria-bella-napoli" required /></div>
+            <div><label class="form-label">Nome do Restaurante *</label><input type="text" id="saas-store-name" class="form-input" placeholder="Ex: Pizzaria Dona Vina" required oninput="autoSlugifySaas(this.value)" /></div>
+            <div><label class="form-label">Link Único (Slug) *</label><input type="text" id="saas-store-slug" class="form-input" placeholder="pizzaria-dona-vina" required /></div>
             <div><label class="form-label">E-mail de Login *</label><input type="email" id="saas-owner-email" class="form-input" placeholder="contato@pizzaria.com" required /></div>
             <div><label class="form-label">Senha Inicial (mín. 6) *</label><input type="text" id="saas-owner-pass" class="form-input" placeholder="123456" minlength="6" required /></div>
             <div><label class="form-label">Vencimento *</label><input type="date" id="saas-expires-at" class="form-input" required /></div>
@@ -633,6 +639,29 @@
         </div>
       </section>
     </main>
+  </div>
+
+  <!-- MODAL: IMPORTAR CARDÁPIO JSON -->
+  <div id="import-menu-modal" class="modal-backdrop hidden" onclick="if(event.target===this) closeImportMenuModal()">
+    <div class="modal-box" style="max-width:600px;">
+      <div class="modal-header">
+        <h3>Importar Cardápio Completo (JSON)</h3>
+        <button type="button" class="modal-close" onclick="closeImportMenuModal()"><i data-lucide="x" style="width:18px;height:18px;"></i></button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:0.84rem;color:var(--text-muted);margin-bottom:10px;">
+          Cole o código JSON do cardápio abaixo para preencher categorias, produtos e opções desta loja automaticamente:
+        </p>
+        <textarea id="import-json-textarea" class="form-textarea" rows="11" style="font-family:monospace;font-size:0.78rem;" placeholder='{"name": "Pizzaria...", "categories": [...], "products": [...]}'></textarea>
+        <label style="display:flex;align-items:center;gap:8px;font-size:0.82rem;font-weight:600;margin-top:10px;">
+          <input type="checkbox" id="import-replace-mode" checked /> Substituir categorias e produtos atuais desta loja
+        </label>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeImportMenuModal()">Cancelar</button>
+        <button type="button" class="btn btn-primary" onclick="processImportMenuJson()">Importar e Salvar Agora</button>
+      </div>
+    </div>
   </div>
 
   <div id="product-modal" class="modal-backdrop hidden" onclick="if(event.target===this) closeProductModal()">
@@ -823,13 +852,10 @@
               { id: "og-1", title: "Ponto da Carne", required: true, multi: false, options: [{ id: "o-1", name: "Ao ponto", price: 0 }, { id: "o-2", name: "Bem passado", price: 0 }] },
               { id: "og-2", title: "Adicionais", required: false, multi: true, options: [{ id: "o-3", name: "Bacon Extra", price: 4.50 }, { id: "o-4", name: "Cheddar Extra", price: 3.50 }] }
             ]
-          },
-          { id: "prod-2", categoryId: "cat-2", name: "Batata Smoked Paprika", desc: "Porção de batatas crinkle com páprica e cheddar.", price: 18.90, oldPrice: 22.00, available: true, img: "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=500&q=80", optionGroups: [] },
-          { id: "prod-3", categoryId: "cat-3", name: "Coca-Cola Zero 350ml", desc: "Lata gelada 350ml.", price: 6.50, oldPrice: null, available: true, img: "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=500&q=80", optionGroups: [] }
+          }
         ],
         coupons: [
-          { id: "cp-1", code: "BEMVINDO10", type: "percent", value: 10, active: true },
-          { id: "cp-2", code: "FRETEGRATIS", type: "shipping", value: 0, active: true }
+          { id: "cp-1", code: "BEMVINDO10", type: "percent", value: 10, active: true }
         ],
         whatsapp: {
           provider: "cloud_demo", apiUrl: "", apiToken: "", qrEndpoint: "",
@@ -941,7 +967,47 @@
       try {
         await setDoc(doc(db, "stores", currentSlug), currentStore, { merge: true });
       } catch (e) {
-        showToast("Erro de permissão no Firestore. Publique as regras no Firebase.", "error");
+        showToast("Erro de permissão no Firestore.", "error");
+      }
+    }
+
+    function openImportMenuModal() {
+      document.getElementById("import-json-textarea").value = "";
+      document.getElementById("import-menu-modal").classList.remove("hidden");
+    }
+    function closeImportMenuModal() { document.getElementById("import-menu-modal").classList.add("hidden"); }
+
+    async function processImportMenuJson() {
+      const raw = document.getElementById("import-json-textarea").value.trim();
+      if (!raw) { showToast("Cole o JSON do cardápio primeiro.", "warning"); return; }
+      try {
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed.categories) || !Array.isArray(parsed.products)) {
+          showToast("JSON inválido: faltam categories ou products.", "error");
+          return;
+        }
+        const replace = document.getElementById("import-replace-mode").checked;
+        if (parsed.name) currentStore.name = parsed.name;
+        if (parsed.subtitle) currentStore.subtitle = parsed.subtitle;
+        if (parsed.address) currentStore.address = parsed.address;
+        if (parsed.eta) currentStore.eta = parsed.eta;
+        if (parsed.primaryColor) currentStore.primaryColor = parsed.primaryColor;
+        if (parsed.logo) currentStore.logo = parsed.logo;
+        if (parsed.banner) currentStore.banner = parsed.banner;
+
+        if (replace) {
+          currentStore.categories = parsed.categories;
+          currentStore.products = parsed.products;
+        } else {
+          currentStore.categories = [...(currentStore.categories || []), ...parsed.categories];
+          currentStore.products = [...(currentStore.products || []), ...parsed.products];
+        }
+        await persistStoreData();
+        closeImportMenuModal();
+        initAdminDashboard();
+        showToast(`Cardápio importado (${parsed.products.length} produtos)!`, "success");
+      } catch (err) {
+        showToast("Erro no formato JSON: " + err.message, "error");
       }
     }
 
@@ -976,16 +1042,6 @@
           document.getElementById("view-customer").classList.remove("hidden");
           renderCustomerStorefront();
         }
-      }, (err) => {
-        console.warn("Firestore read fallback:", err.message);
-        if (!isAdminMode) {
-          document.getElementById("view-loading").classList.add("hidden");
-          document.getElementById("view-customer").classList.remove("hidden");
-          renderCustomerStorefront();
-        } else {
-          showToast("Publique as Regras no Firestore para sincronizar.", "warning");
-          initAdminDashboard();
-        }
       });
 
       if (isAdminMode) {
@@ -1001,7 +1057,7 @@
           initialLoad = false;
           currentOrders = list;
           renderAdminOrders();
-        }, (err) => console.warn("Orders listener:", err.message));
+        });
       }
     }
 
@@ -1047,9 +1103,7 @@
               const snap = await getDocs(query(collection(db, "stores"), where("ownerEmail", "==", email)));
               if (!snap.empty) { currentSlug = snap.docs[0].id; switchView("admin"); }
               else showBlockedScreen("Nenhuma Loja Vinculada", "Seu usuário não possui restaurante vinculado.");
-            } catch (e) {
-              showToast("Erro ao verificar loja vinculada. Verifique as regras do Firestore.", "error");
-            }
+            } catch (e) { showToast("Erro ao verificar loja.", "error"); }
           }
         } else {
           switchView(isPainel ? "login" : "customer");
@@ -1103,7 +1157,7 @@
                 </div>
               </div>
               <div class="product-img-wrap">
-                ${p.oldPrice ? '<span class="promo-tag">Promo</span>' : ""}
+                ${p.oldPrice || p.isPromo ? '<span class="promo-tag">Promo</span>' : ""}
                 <img src="${p.img || currentStore.logo}" alt="${p.name}" loading="lazy" />
               </div>
             </div>`).join("") + `</div></div>`;
@@ -1265,12 +1319,8 @@
         status: "novo", createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
         createdTimestamp: Date.now()
       };
-      try {
-        await addDoc(collection(db, "stores", currentSlug, "orders"), newOrder);
-      } catch (e) {
-        showToast("Erro ao enviar pedido. Verifique as regras do Firestore.", "error");
-        return;
-      }
+      try { await addDoc(collection(db, "stores", currentSlug, "orders"), newOrder); }
+      catch (e) { showToast("Erro ao enviar pedido.", "error"); return; }
       await dispatchWhatsAppMessage(newOrder.customerPhone, formatTemplateMessage(currentStore.whatsapp?.tplConfirmacao, newOrder), true);
 
       customerCart = []; appliedCoupon = null; updateFloatingCartBar();
@@ -1388,7 +1438,7 @@
         <div style="font-size:0.86rem;display:flex;flex-direction:column;gap:8px;">
           <div><strong>Telefone:</strong> ${o.customerPhone}</div><div><strong>Entrega:</strong> ${o.address}</div><div><strong>Pagamento:</strong> ${o.payment}</div>
           <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);"><strong>Itens:</strong>
-            ${(o.items || []).map(i => `<div>• ${i.qty}x ${i.name} (${formatBRL(i.unitPrice * i.qty)})</div>`).join("")}
+            ${(o.items || []).map(i => `<div>• ${i.qty}x ${i.name} (${formatBRL(i.unitPrice * i.qty)}) ${i.optionsText ? `<br/><small style="color:#64748B;">${i.optionsText}</small>` : ""}</div>`).join("")}
           </div>
           <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);"><strong>Total: ${formatBRL(o.total)}</strong></div>
         </div>`;
@@ -1695,7 +1745,8 @@
       autoFillPdvCustomer, togglePdvDeliveryFields, togglePdvChangeField, renderPdvCart, submitPdvOrder, openProductEditor, closeProductEditor,
       handleProductImageUpload, addEditorOptionGroup, renderEditorGroups, saveProductFromEditor, toggleProductAvail, deleteProduct, addCategory,
       deleteCategory, addCoupon, deleteCoupon, onWaProviderChange, saveWaSettings, generateCloudPairingQR, copyTag, clearSimChat, sendSimMessage,
-      handleStoreImageUpload, saveStoreSettings, exportBackupJSON, autoSlugifySaas, createSaasTenant, copyTenantLink, toggleTenantStatus, manageTenantAsMaster
+      handleStoreImageUpload, saveStoreSettings, exportBackupJSON, autoSlugifySaas, createSaasTenant, copyTenantLink, toggleTenantStatus, manageTenantAsMaster,
+      openImportMenuModal, closeImportMenuModal, processImportMenuJson
     });
 
     const nextMonth = new Date(); nextMonth.setDate(nextMonth.getDate() + 30);
