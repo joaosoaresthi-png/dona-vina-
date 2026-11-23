@@ -117,9 +117,9 @@
     .media-preview-box img { width: 100%; height: 100%; object-fit: cover; }
     .media-actions-col { flex: 1; display: flex; flex-direction: column; gap: 8px; }
     .media-btns-row { display: flex; gap: 8px; flex-wrap: wrap; }
-    .form-group { margin-bottom: 14px; }
-    .form-label { display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 5px; }
-    .form-input, .form-select, .form-textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; font-size: 0.88rem; background: #fff; color: var(--text-main); outline: none; }
+    .form-group { margin-bottom: 12px; }
+    .form-label { display: block; font-size: 0.78rem; font-weight: 700; margin-bottom: 4px; }
+    .form-input, .form-select, .form-textarea { width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 10px; font-size: 0.86rem; background: #fff; color: var(--text-main); outline: none; }
     .form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--primary); }
     .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 16px; border-radius: 10px; font-weight: 700; font-size: 0.86rem; transition: 0.2s; }
     .btn-primary { background: var(--primary); color: #fff; }
@@ -180,10 +180,11 @@
     .order-items-box { background: #F8FAFC; padding: 9px 11px; border-radius: 8px; font-size: 0.8rem; color: #475569; }
     .order-card-actions { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding-top: 10px; border-top: 1px solid var(--border); }
 
-    .pdv-layout { display: grid; grid-template-columns: 1.4fr 1fr; gap: 20px; align-items: start; }
-    .pdv-products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-top: 12px; max-height: 60vh; overflow-y: auto; }
-    .pdv-item-card { border: 1px solid var(--border); border-radius: 12px; padding: 12px; background: #fff; cursor: pointer; display: flex; flex-direction: column; justify-content: space-between; }
+    .pdv-layout { display: grid; grid-template-columns: 1.35fr 1.05fr; gap: 20px; align-items: start; }
+    .pdv-products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-top: 12px; max-height: 62vh; overflow-y: auto; }
+    .pdv-item-card { border: 1px solid var(--border); border-radius: 12px; padding: 12px; background: #fff; cursor: pointer; display: flex; flex-direction: column; justify-content: space-between; transition: 0.15s; }
     .pdv-item-card:hover { border-color: var(--primary); background: var(--primary-light); }
+    .address-box-grid { background: #F8FAFC; border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 12px; }
     .wa-hero-banner { background: linear-gradient(135deg, #064E3B 0%, #065F46 100%); color: #fff; border-radius: 18px; padding: 22px 26px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; margin-bottom: 22px; }
     .wa-hub-grid { display: grid; grid-template-columns: 1.25fr 1fr; gap: 20px; align-items: start; }
     .qr-box-container { border: 1px solid var(--border); border-radius: 14px; padding: 20px; background: #F8FAFC; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 220px; text-align: center; }
@@ -312,7 +313,7 @@
         <img id="admin-sidebar-logo" src="" alt="Logo" />
         <div class="sidebar-brand-info">
           <h4 id="admin-sidebar-name">Brava Burger & Grill</h4>
-          <div class="sidebar-connected"><span class="pulse-dot"></span> <span>Firebase Conectado</span></div>
+          <div id="sidebar-firebase-badge" class="sidebar-connected hidden"><span class="pulse-dot"></span> <span>Firebase Conectado</span></div>
         </div>
       </div>
       <nav class="sidebar-nav">
@@ -321,7 +322,7 @@
           <span id="sidebar-new-orders-badge" class="nav-badge">0</span>
         </button>
         <button type="button" class="nav-item" data-tab="pdv" onclick="switchAdminTab('pdv')">
-          <span class="nav-item-left"><i data-lucide="calculator" style="width:17px;height:17px;"></i> PDV / Tirador de Pedido</span>
+          <span class="nav-item-left"><i data-lucide="calculator" style="width:17px;height:17px;"></i> PDV</span>
         </button>
         <button type="button" class="nav-item" data-tab="products" onclick="switchAdminTab('products')">
           <span class="nav-item-left"><i data-lucide="utensils" style="width:17px;height:17px;"></i> Cardápio & Produtos</span>
@@ -408,9 +409,22 @@
               <div class="form-group"><label class="form-label">Tipo</label><select id="pdv-type" class="form-select" onchange="togglePdvDeliveryFields()"><option value="delivery">Entrega Delivery</option><option value="pickup">Retirada no Balcão</option></select></div>
               <div class="form-group"><label class="form-label">Pagamento</label><select id="pdv-payment" class="form-select" onchange="togglePdvChangeField()"><option value="Pix">Pix</option><option value="Cartão de Crédito">Cartão de Crédito</option><option value="Cartão de Débito">Cartão de Débito</option><option value="Dinheiro">Dinheiro</option></select></div>
             </div>
-            <div id="pdv-address-group" class="form-group"><label class="form-label">Endereço de Entrega</label><input type="text" id="pdv-address" class="form-input" placeholder="Rua, número, bairro..." /></div>
+
+            <div id="pdv-address-group" class="address-box-grid">
+              <div style="font-size:0.78rem;font-weight:800;margin-bottom:8px;color:#334155;">Endereço Completo de Entrega</div>
+              <div style="display:grid;grid-template-columns:2fr 0.8fr;gap:8px;margin-bottom:8px;">
+                <div><label class="form-label">Rua / Avenida *</label><input type="text" id="pdv-addr-street" class="form-input" placeholder="Ex: Rua Ernesto José de Paula" /></div>
+                <div><label class="form-label">Número *</label><input type="text" id="pdv-addr-number" class="form-input" placeholder="Ex: 420" /></div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+                <div><label class="form-label">Bairro *</label><input type="text" id="pdv-addr-neighborhood" class="form-input" placeholder="Ex: São Marcos" /></div>
+                <div><label class="form-label">Complemento / Apto</label><input type="text" id="pdv-addr-complement" class="form-input" placeholder="Casa 2, Bloco B..." /></div>
+              </div>
+              <div><label class="form-label">Ponto de Referência</label><input type="text" id="pdv-addr-reference" class="form-input" placeholder="Próximo ao mercado / portão preto..." /></div>
+            </div>
+
             <div id="pdv-change-group" class="form-group hidden"><label class="form-label">Troco para quanto? (R$)</label><input type="number" id="pdv-change-for" class="form-input" placeholder="Ex: 100" oninput="renderPdvCart()" /></div>
-            <div style="border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:12px 0;margin:12px 0;max-height:200px;overflow-y:auto;" id="pdv-cart-items"></div>
+            <div style="border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:12px 0;margin:12px 0;max-height:220px;overflow-y:auto;" id="pdv-cart-items"></div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
               <div><label class="form-label">Taxa Entrega (R$)</label><input type="number" step="0.5" id="pdv-fee" class="form-input" value="6" oninput="renderPdvCart()" /></div>
               <div><label class="form-label">Desconto (R$)</label><input type="number" step="0.5" id="pdv-discount" class="form-input" value="0" oninput="renderPdvCart()" /></div>
@@ -420,10 +434,11 @@
               <div style="display:flex;justify-content:space-between;font-size:1.05rem;font-weight:800;margin-top:4px;"><span>Total Final:</span><span id="pdv-total" style="color:var(--success);">R$ 0,00</span></div>
               <div id="pdv-change-result" style="font-size:0.8rem;color:var(--warning);font-weight:700;margin-top:4px;" class="hidden"></div>
             </div>
-            <div style="display:grid;grid-template-columns:1fr 1.3fr;gap:10px;">
-              <button type="button" class="btn btn-dark" onclick="submitPdvOrder(false)">Registrar Pedido</button>
-              <button type="button" class="btn btn-whatsapp" onclick="submitPdvOrder(true)"><i data-lucide="send" style="width:15px;height:15px;"></i> Registrar + WhatsApp</button>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+              <button type="button" class="btn btn-dark" onclick="submitPdvOrder(false, false)">Registrar Pedido</button>
+              <button type="button" class="btn btn-outline" onclick="submitPdvOrder(false, true)"><i data-lucide="printer" style="width:15px;height:15px;"></i> Registrar + Imprimir</button>
             </div>
+            <button type="button" class="btn btn-whatsapp" style="width:100%;" onclick="submitPdvOrder(true, true)"><i data-lucide="send" style="width:15px;height:15px;"></i> Registrar + WhatsApp + Imprimir</button>
           </div>
         </div>
       </section>
@@ -470,7 +485,7 @@
           <div>
             <span style="background:rgba(255,255,255,0.16);padding:4px 10px;border-radius:999px;font-size:0.72rem;font-weight:800;">CLOUD API DIRETA</span>
             <h2 style="font-size:1.3rem;font-weight:800;margin-top:6px;">WhatsApp Automático & Robô Inteligente</h2>
-            <p style="font-size:0.84rem;opacity:0.9;max-width:600px;margin-top:4px;">Conecte via Z-API, Evolution API ou Webhook. Para conectar sessão do WhatsApp Web via QR, configure a URL de QR do seu provedor ou use o QR direto de atendimento.</p>
+            <p style="font-size:0.84rem;opacity:0.9;max-width:600px;margin-top:4px;">Conecte via Z-API, Evolution API ou Webhook.</p>
           </div>
           <div style="display:flex;flex-direction:column;gap:6px;min-width:240px;">
             <label style="font-size:0.75rem;font-weight:700;">Provedor:</label>
@@ -498,7 +513,7 @@
               </div>
               <div id="wa-qr-box" class="qr-box-container">
                 <strong style="font-size:1rem;color:#15803D;">Sessão WhatsApp Pronta!</strong>
-                <p style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;max-width:360px;">Clique em <strong>Exibir QR Code</strong> para gerar o QR de atendimento direto da loja ou carregar o QR da sua API.</p>
+                <p style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;max-width:360px;">Clique em <strong>Exibir QR Code</strong> para gerar o QR da loja.</p>
               </div>
               <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;">
                 <button type="button" class="btn btn-primary btn-sm" onclick="saveWaSettings()">Salvar Conexão</button>
@@ -641,11 +656,11 @@
     </main>
   </div>
 
-  <!-- MODAL: EDITAR LOGIN / ASSINATURA DO CLIENTE -->
+  <!-- MODAL: EDITAR LOGIN / SENHA DIRETA / ASSINATURA DO CLIENTE -->
   <div id="edit-tenant-modal" class="modal-backdrop hidden" onclick="if(event.target===this) closeEditTenantModal()">
     <div class="modal-box" style="max-width:460px;">
       <div class="modal-header">
-        <h3>Editar Acesso & Assinatura</h3>
+        <h3>Editar Acesso & Senha da Loja</h3>
         <button type="button" class="modal-close" onclick="closeEditTenantModal()"><i data-lucide="x" style="width:18px;height:18px;"></i></button>
       </div>
       <form onsubmit="saveTenantEdit(event)">
@@ -660,19 +675,17 @@
             <input type="email" id="edit-tenant-email" class="form-input" required />
           </div>
           <div class="form-group">
+            <label class="form-label">Nova Senha Direta (mín. 6 caracteres — deixe em branco para manter)</label>
+            <input type="text" id="edit-tenant-new-pass" class="form-input" minlength="6" placeholder="Ex: novasenha123" />
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
             <label class="form-label">Data de Vencimento</label>
             <input type="date" id="edit-tenant-expires" class="form-input" required />
-          </div>
-          <div style="background:#F8FAFC;border:1px solid var(--border);border-radius:10px;padding:12px;font-size:0.8rem;color:var(--text-muted);">
-            Para alterar a senha de um usuário no Firebase Authentication sem servidor externo, envie um e-mail de redefinição de senha para o e-mail cadastrado:
-            <div style="margin-top:8px;">
-              <button type="button" class="btn btn-outline btn-sm" onclick="sendTenantPasswordReset()">Enviar E-mail de Redefinição de Senha</button>
-            </div>
           </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline" onclick="closeEditTenantModal()">Cancelar</button>
-          <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+          <button type="submit" id="save-tenant-edit-btn" class="btn btn-primary">Salvar Alterações</button>
         </div>
       </form>
     </div>
@@ -687,7 +700,7 @@
       </div>
       <div class="modal-body">
         <p style="font-size:0.84rem;color:var(--text-muted);margin-bottom:10px;">
-          Cole o código JSON do cardápio abaixo para preencher categorias, produtos e opções desta loja automaticamente:
+          Cole o código JSON do cardápio abaixo para preencher categorias, produtos e sabores/variações desta loja:
         </p>
         <textarea id="import-json-textarea" class="form-textarea" rows="11" style="font-family:monospace;font-size:0.78rem;" placeholder='{"name": "Pizzaria...", "categories": [...], "products": [...]}'></textarea>
         <label style="display:flex;align-items:center;gap:8px;font-size:0.82rem;font-weight:600;margin-top:10px;">
@@ -701,14 +714,15 @@
     </div>
   </div>
 
+  <!-- MODAL: VARIAÇÕES / SABORES DO ITEM -->
   <div id="product-modal" class="modal-backdrop hidden" onclick="if(event.target===this) closeProductModal()">
     <div class="modal-box">
       <div class="modal-header"><h3 id="pm-title">Produto</h3><button type="button" class="modal-close" onclick="closeProductModal()"><i data-lucide="x" style="width:18px;height:18px;"></i></button></div>
       <div class="modal-body">
-        <img id="pm-img" src="" alt="" style="width:100%;height:175px;object-fit:cover;border-radius:12px;margin-bottom:12px;" />
+        <img id="pm-img" src="" alt="" style="width:100%;height:165px;object-fit:cover;border-radius:12px;margin-bottom:12px;" />
         <p id="pm-desc" style="font-size:0.86rem;color:var(--text-muted);margin-bottom:16px;"></p>
         <div id="pm-options-container"></div>
-        <div class="form-group" style="margin-bottom:0;"><label class="form-label">Observações (opcional)</label><input type="text" id="pm-notes" class="form-input" placeholder="Ex: Tirar cebola..." /></div>
+        <div class="form-group" style="margin-bottom:0;"><label class="form-label">Observações (opcional)</label><input type="text" id="pm-notes" class="form-input" placeholder="Ex: Sem cebola, borda bem assada..." /></div>
       </div>
       <div class="modal-footer">
         <div style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--border);border-radius:10px;padding:4px 10px;">
@@ -747,7 +761,20 @@
           </div>
           <div class="form-group"><label class="form-label">Seu Nome *</label><input type="text" id="cust-order-name" class="form-input" /></div>
           <div class="form-group"><label class="form-label">Seu WhatsApp *</label><input type="text" id="cust-order-phone" class="form-input" placeholder="(41) 99999-9999" /></div>
-          <div id="cust-address-wrap" class="form-group"><label class="form-label">Endereço de Entrega *</label><input type="text" id="cust-order-address" class="form-input" /></div>
+
+          <div id="cust-address-wrap" class="address-box-grid">
+            <div style="font-size:0.78rem;font-weight:800;margin-bottom:8px;color:#334155;">Endereço Completo de Entrega</div>
+            <div style="display:grid;grid-template-columns:2fr 0.8fr;gap:8px;margin-bottom:8px;">
+              <div><label class="form-label">Rua / Avenida *</label><input type="text" id="cust-addr-street" class="form-input" placeholder="Ex: Rua Ernesto José de Paula" /></div>
+              <div><label class="form-label">Número *</label><input type="text" id="cust-addr-number" class="form-input" placeholder="Ex: 420" /></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+              <div><label class="form-label">Bairro *</label><input type="text" id="cust-addr-neighborhood" class="form-input" placeholder="Ex: São Marcos" /></div>
+              <div><label class="form-label">Complemento / Apto</label><input type="text" id="cust-addr-complement" class="form-input" placeholder="Casa 2, Bloco B..." /></div>
+            </div>
+            <div><label class="form-label">Ponto de Referência</label><input type="text" id="cust-addr-reference" class="form-input" placeholder="Próximo ao mercado / portão preto..." /></div>
+          </div>
+
           <div class="form-group">
             <label class="form-label">Pagamento</label>
             <select id="cust-order-payment" class="form-select" onchange="toggleCustPaymentInfo()"><option value="Pix">Pix</option><option value="Cartão de Crédito">Cartão na Entrega</option><option value="Dinheiro">Dinheiro</option></select>
@@ -807,7 +834,7 @@
         </div>
         <div style="padding-top:12px;border-top:1px solid var(--border);">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-            <strong style="font-size:0.9rem;">Opções & Complementos</strong>
+            <strong style="font-size:0.9rem;">Opções, Sabores & Complementos</strong>
             <button type="button" class="btn btn-outline btn-sm" onclick="addEditorOptionGroup()">+ Adicionar Grupo</button>
           </div>
           <div id="pe-groups-container"></div>
@@ -834,7 +861,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
     import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, addDoc, getDocs, query, where, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -928,13 +955,17 @@
 
     const isMasterUser = () => Boolean(currentUser && (currentUser.email || "").toLowerCase() === MASTER_EMAIL.toLowerCase());
     const syncMasterMenuVisibility = () => {
-      document.getElementById("nav-saas-master").classList.toggle("hidden", !isMasterUser());
+      const master = isMasterUser();
+      document.getElementById("nav-saas-master").classList.toggle("hidden", !master);
+      document.getElementById("sidebar-firebase-badge").classList.toggle("hidden", !master);
     };
     const syncUrlSlug = (slug, keepPainel = false) => {
       try {
         const url = new URL(window.location.href);
         url.searchParams.set("loja", slug);
+        url.searchParams.delete("vitrine");
         if (keepPainel) url.searchParams.set("painel", "1");
+        else url.searchParams.delete("painel");
         window.history.replaceState({}, "", url.toString());
       } catch (e) {}
     };
@@ -952,6 +983,43 @@
     function applyBrandTheme() {
       document.documentElement.style.setProperty("--primary", currentStore.primaryColor || "#EA1D2C");
       window.currentStore = currentStore;
+    }
+
+    function normalizeProductOptionGroups(product) {
+      if (!product) return [];
+      const rawGroups = product.optionGroups || product.variations || product.variacoes || product.options || [];
+      if (!Array.isArray(rawGroups) || !rawGroups.length) return [];
+      return rawGroups.map((g, gi) => {
+        const items = g.options || g.items || g.sabores || g.flavors || g.choices || [];
+        return {
+          id: g.id || `og-${gi}-${Date.now()}`,
+          title: g.title || g.name || g.label || "Opções / Sabores",
+          required: Boolean(g.required),
+          multi: g.multi !== undefined ? Boolean(g.multi) : (Number(g.max || 1) > 1),
+          max: Number(g.max || 0),
+          options: Array.isArray(items) ? items.map((o, oi) => {
+            if (typeof o === "string") return { id: `opt-${gi}-${oi}`, name: o, price: 0 };
+            return {
+              id: o.id || `opt-${gi}-${oi}`,
+              name: o.name || o.title || o.label || "Opção",
+              price: Number(o.price || o.preco || o.additionalPrice || 0)
+            };
+          }) : []
+        };
+      }).filter(g => g.options.length > 0);
+    }
+
+    function buildFormattedAddress(prefix) {
+      const street = (document.getElementById(`${prefix}-addr-street`)?.value || "").trim();
+      const number = (document.getElementById(`${prefix}-addr-number`)?.value || "").trim();
+      const neighborhood = (document.getElementById(`${prefix}-addr-neighborhood`)?.value || "").trim();
+      const complement = (document.getElementById(`${prefix}-addr-complement`)?.value || "").trim();
+      const reference = (document.getElementById(`${prefix}-addr-reference`)?.value || "").trim();
+      if (!street) return "";
+      let line = `${street}${number ? ", nº " + number : ""}${neighborhood ? " - Bairro: " + neighborhood : ""}`;
+      if (complement) line += ` (${complement})`;
+      if (reference) line += ` | Ref: ${reference}`;
+      return line;
     }
 
     function playNewOrderChime() {
@@ -1046,17 +1114,24 @@
         if (parsed.logo) currentStore.logo = parsed.logo;
         if (parsed.banner) currentStore.banner = parsed.banner;
 
+        const normalizedProducts = parsed.products.map((p, idx) => ({
+          ...p,
+          id: p.id || `prod-imp-${Date.now()}-${idx}`,
+          available: p.available !== false,
+          optionGroups: normalizeProductOptionGroups(p)
+        }));
+
         if (replace) {
           currentStore.categories = parsed.categories;
-          currentStore.products = parsed.products;
+          currentStore.products = normalizedProducts;
         } else {
           currentStore.categories = [...(currentStore.categories || []), ...parsed.categories];
-          currentStore.products = [...(currentStore.products || []), ...parsed.products];
+          currentStore.products = [...(currentStore.products || []), ...normalizedProducts];
         }
         await persistStoreData();
         closeImportMenuModal();
         initAdminDashboard();
-        showToast(`Cardápio importado (${parsed.products.length} produtos)!`, "success");
+        showToast(`Cardápio importado (${normalizedProducts.length} produtos)!`, "success");
       } catch (err) {
         showToast("Erro no formato JSON: " + err.message, "error");
       }
@@ -1142,11 +1217,16 @@
       const params = new URLSearchParams(window.location.search);
       const lojaParam = (params.get("loja") || "").toLowerCase().trim();
       const isPainel = params.has("painel");
+      const isVitrine = params.has("vitrine");
       if (lojaParam) currentSlug = lojaParam;
 
       onAuthStateChanged(auth, async (user) => {
         currentUser = user;
         syncMasterMenuVisibility();
+        if (isVitrine) {
+          switchView("customer");
+          return;
+        }
         if (user) {
           const email = (user.email || "").toLowerCase();
           if (email === MASTER_EMAIL.toLowerCase()) {
@@ -1237,20 +1317,24 @@
       if (target === "customer" && !currentStore.isOpen) { showToast("A loja está fechada no momento.", "warning"); return; }
       const product = (currentStore.products || []).find(p => p.id === productId);
       if (!product) return;
-      modalContext = { product, qty: 1, target };
+      const groups = normalizeProductOptionGroups(product);
+      modalContext = { product: { ...product, optionGroups: groups }, qty: 1, target };
       document.getElementById("pm-title").textContent = product.name;
       document.getElementById("pm-img").src = product.img || currentStore.logo;
       document.getElementById("pm-desc").textContent = product.desc || "";
       document.getElementById("pm-notes").value = "";
       document.getElementById("pm-qty").textContent = "1";
 
-      document.getElementById("pm-options-container").innerHTML = (product.optionGroups || []).map(g => `
+      document.getElementById("pm-options-container").innerHTML = groups.map(g => `
         <div class="option-group-box">
-          <div class="option-group-head"><strong>${g.title}</strong><span class="req-badge ${g.required ? "required" : "optional"}">${g.required ? "Obrigatório" : "Opcional"}</span></div>
+          <div class="option-group-head">
+            <strong>${g.title}${g.max > 1 ? ` (até ${g.max})` : ""}</strong>
+            <span class="req-badge ${g.required ? "required" : "optional"}">${g.required ? "Obrigatório" : "Opcional"}</span>
+          </div>
           <div>${g.options.map((opt, idx) => `
             <label class="option-item-row">
               <div style="display:flex;align-items:center;gap:10px;">
-                <input type="${g.multi ? "checkbox" : "radio"}" name="grp_${g.id}" value="${opt.id}" data-price="${opt.price}" data-name="${opt.name}" ${!g.multi && g.required && idx === 0 ? "checked" : ""} onchange="recalcModalPrice()" />
+                <input type="${g.multi ? "checkbox" : "radio"}" name="grp_${g.id}" value="${opt.id}" data-max="${g.max || 0}" data-price="${opt.price}" data-name="${opt.name}" ${!g.multi && g.required && idx === 0 ? "checked" : ""} onchange="handleModalOptionChange(this)" />
                 <span style="font-size:0.86rem;">${opt.name}</span>
               </div>
               <span style="font-size:0.82rem;font-weight:700;color:var(--success);">${opt.price > 0 ? "+ " + formatBRL(opt.price) : "Grátis"}</span>
@@ -1260,6 +1344,19 @@
 
       recalcModalPrice();
       document.getElementById("product-modal").classList.remove("hidden");
+    }
+
+    function handleModalOptionChange(inputEl) {
+      const max = parseInt(inputEl.dataset.max || "0", 10);
+      if (inputEl.type === "checkbox" && max > 0 && inputEl.checked) {
+        const checked = document.querySelectorAll(`input[name="${inputEl.name}"]:checked`);
+        if (checked.length > max) {
+          inputEl.checked = false;
+          showToast(`Você pode escolher no máximo ${max} opção(ões) neste grupo.`, "warning");
+          return;
+        }
+      }
+      recalcModalPrice();
     }
 
     function closeProductModal() { document.getElementById("product-modal").classList.add("hidden"); }
@@ -1366,16 +1463,21 @@
     async function finalizeCustomerOrder() {
       const name = document.getElementById("cust-order-name").value.trim();
       const phone = document.getElementById("cust-order-phone").value.trim();
-      const address = document.getElementById("cust-order-address").value.trim();
+      const street = document.getElementById("cust-addr-street").value.trim();
+      const number = document.getElementById("cust-addr-number").value.trim();
+      const neighborhood = document.getElementById("cust-addr-neighborhood").value.trim();
       const payment = document.getElementById("cust-order-payment").value;
       if (!name || !phone) { showToast("Preencha seu nome e WhatsApp.", "warning"); return; }
-      if (cartDeliveryMode === "delivery" && !address) { showToast("Informe o endereço de entrega.", "warning"); return; }
+      if (cartDeliveryMode === "delivery" && (!street || !number || !neighborhood)) {
+        showToast("Preencha Rua, Número e Bairro para entrega.", "warning"); return;
+      }
 
+      const fullAddress = cartDeliveryMode === "delivery" ? buildFormattedAddress("cust") : "Retirada no Balcão";
       const { subtotal, fee, discount, total } = calcCartTotals();
       const newOrder = {
         id: "PED-" + Math.floor(1000 + Math.random() * 9000),
         customerName: name, customerPhone: phone, type: cartDeliveryMode,
-        address: cartDeliveryMode === "delivery" ? address : "Retirada no Balcão",
+        address: fullAddress,
         payment, items: structuredClone(customerCart), subtotal, fee, discount, total,
         status: "novo", createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
         createdTimestamp: Date.now()
@@ -1425,7 +1527,7 @@
         showToast("Acesso restrito ao administrador Master.", "error");
         tabName = "orders";
       }
-      const titles = { orders: "Pedidos & Vendas", pdv: "PDV / Tirador de Pedido", products: "Cardápio & Produtos", categories: "Categorias", coupons: "Cupons", whatsapp: "WhatsApp & Robô", settings: "Configurações da Loja", saas: "Clientes SaaS (Master)" };
+      const titles = { orders: "Pedidos & Vendas", pdv: "PDV", products: "Cardápio & Produtos", categories: "Categorias", coupons: "Cupons", whatsapp: "WhatsApp & Robô", settings: "Configurações da Loja", saas: "Clientes SaaS (Master)" };
       document.getElementById("admin-page-title").textContent = titles[tabName] || "Gestor";
       document.querySelectorAll(".nav-item").forEach(btn => btn.classList.toggle("active", btn.dataset.tab === tabName));
       ["orders", "pdv", "products", "categories", "coupons", "whatsapp", "settings", "saas"].forEach(t => document.getElementById(`tab-${t}`).classList.toggle("hidden", t !== tabName));
@@ -1433,17 +1535,17 @@
       if (window.lucide) lucide.createIcons();
     }
 
-    const getPublicStoreUrl = (slug = currentSlug) => {
+    const getPublicStoreUrl = (slug = currentSlug, vitrine = false) => {
       const baseUrl = `${window.location.origin}${window.location.pathname}`;
-      return `${baseUrl}?loja=${encodeURIComponent(slug)}`;
+      return `${baseUrl}?loja=${encodeURIComponent(slug)}${vitrine ? "&vitrine=1" : ""}`;
     };
     function copyCurrentStoreUrl() {
-      const u = getPublicStoreUrl(currentSlug);
+      const u = getPublicStoreUrl(currentSlug, false);
       navigator.clipboard?.writeText(u);
       showToast(`Link do cardápio copiado: ${u}`, "success");
     }
     function openStorePublicLink() {
-      const u = getPublicStoreUrl(currentSlug);
+      const u = getPublicStoreUrl(currentSlug, true);
       window.open(u, "_blank", "noopener,noreferrer");
     }
     async function toggleStoreOpen(isOpen) { currentStore.isOpen = isOpen; await persistStoreData(); updateStoreStatusText(); showToast(isOpen ? "Loja ABERTA!" : "Loja FECHADA.", isOpen ? "success" : "warning"); }
@@ -1483,17 +1585,23 @@
               <div class="order-card-head"><span class="order-id">${o.id}</span><span class="status-tag status-${o.status}">${labels[o.status] || o.status}</span></div>
               <div style="margin-top:8px;"><div style="font-weight:700;font-size:0.92rem;">${o.customerName}</div><div style="font-size:0.78rem;color:var(--text-muted);">${o.customerPhone} • ${o.createdAt || ""}</div></div>
             </div>
-            <div class="order-type-strip">${o.type === "delivery" ? "🛵 Entrega Delivery" : "🛍️ Retirada"}</div>
-            <div class="order-items-box"><strong>${(o.items || []).length} item(ns):</strong> ${(o.items || []).map(i => `${i.qty}x ${i.name}`).join(", ")}</div>
+            <div class="order-type-strip">${o.type === "delivery" ? "🛵 " + o.address : "🛍️ Retirada"}</div>
+            <div class="order-items-box"><strong>${(o.items || []).length} item(ns):</strong> ${(o.items || []).map(i => `${i.qty}x ${i.name}${i.optionsText ? ` (${i.optionsText})` : ""}`).join(", ")}</div>
             <div style="font-size:0.86rem;">Total: <strong>${formatBRL(o.total)}</strong> (${o.payment})</div>
-            <div class="order-card-actions"><button type="button" class="btn btn-outline btn-sm" onclick="openOrderDetailModal('${key}')">Detalhes</button>${btn}</div>
+            <div class="order-card-actions">
+              <div style="display:flex;gap:6px;">
+                <button type="button" class="btn btn-outline btn-sm" onclick="openOrderDetailModal('${key}')">Detalhes</button>
+                <button type="button" class="btn btn-outline btn-sm" onclick="printOrderReceipt('${key}')">Imprimir</button>
+              </div>
+              ${btn}
+            </div>
           </div>`;
       }).join("") || '<p style="color:var(--text-muted);font-size:0.9rem;">Nenhum pedido nesta etapa.</p>';
       if (window.lucide) lucide.createIcons();
     }
 
     function formatTemplateMessage(tpl, o) {
-      const itemsText = (o.items || []).map(i => `${i.qty}x ${i.name}`).join(", ");
+      const itemsText = (o.items || []).map(i => `${i.qty}x ${i.name}${i.optionsText ? ` (${i.optionsText})` : ""}`).join(", ");
       return (tpl || "").replace(/\{cliente\}/g, o.customerName).replace(/\{pedido\}/g, o.id).replace(/\{itens\}/g, itemsText)
         .replace(/\{total\}/g, formatBRL(o.total)).replace(/\{endereco\}/g, o.address).replace(/\{tempo\}/g, currentStore.eta);
     }
@@ -1514,43 +1622,99 @@
         <div style="font-size:0.86rem;display:flex;flex-direction:column;gap:8px;">
           <div><strong>Telefone:</strong> ${o.customerPhone}</div><div><strong>Entrega:</strong> ${o.address}</div><div><strong>Pagamento:</strong> ${o.payment}</div>
           <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);"><strong>Itens:</strong>
-            ${(o.items || []).map(i => `<div>• ${i.qty}x ${i.name} (${formatBRL(i.unitPrice * i.qty)}) ${i.optionsText ? `<br/><small style="color:#64748B;">${i.optionsText}</small>` : ""}</div>`).join("")}
+            ${(o.items || []).map(i => `<div>• ${i.qty}x ${i.name} (${formatBRL(i.unitPrice * i.qty)}) ${i.optionsText ? `<br/><small style="color:#64748B;">${i.optionsText}</small>` : ""}${i.notes ? `<br/><small style="color:#B45309;">Obs: ${i.notes}</small>` : ""}</div>`).join("")}
           </div>
           <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);"><strong>Total: ${formatBRL(o.total)}</strong></div>
         </div>`;
-      document.getElementById("od-footer").innerHTML = `<button type="button" class="btn btn-outline btn-sm" onclick="printOrderReceipt('${key}')">Imprimir Comanda 80mm</button><button type="button" class="btn btn-dark btn-sm" onclick="closeOrderDetailModal()">Fechar</button>`;
+      document.getElementById("od-footer").innerHTML = `<button type="button" class="btn btn-primary btn-sm" onclick="printOrderReceipt('${key}')">Imprimir Comanda 80mm</button><button type="button" class="btn btn-dark btn-sm" onclick="closeOrderDetailModal()">Fechar</button>`;
       document.getElementById("order-detail-modal").classList.remove("hidden");
     }
     function closeOrderDetailModal() { document.getElementById("order-detail-modal").classList.add("hidden"); }
-    function printOrderReceipt(key) {
-      const o = currentOrders.find(x => (x.firestoreId || x.id) === key);
+
+    function printOrderObject(o) {
       if (!o) return;
       const p = document.getElementById("print-area");
       p.classList.remove("hidden");
-      p.innerHTML = `<div style="text-align:center;font-weight:bold;">${currentStore.name}</div><div style="text-align:center;">Pedido ${o.id}</div><hr/><div>Cliente: ${o.customerName}</div><div>Tel: ${o.customerPhone}</div><div>End: ${o.address}</div><hr/>${(o.items || []).map(i => `<div>${i.qty}x ${i.name} - ${formatBRL(i.unitPrice * i.qty)}</div>`).join("")}<hr/><div>Pagamento: ${o.payment}</div><div style="font-weight:bold;">TOTAL: ${formatBRL(o.total)}</div>`;
-      window.print(); p.classList.add("hidden");
+      p.innerHTML = `
+        <div style="text-align:center;font-weight:bold;font-size:14px;">${currentStore.name}</div>
+        <div style="text-align:center;">Pedido ${o.id} • ${o.createdAt || ""}</div>
+        <hr/>
+        <div><strong>Cliente:</strong> ${o.customerName}</div>
+        <div><strong>Tel:</strong> ${o.customerPhone}</div>
+        <div><strong>Tipo:</strong> ${o.type === "delivery" ? "ENTREGA" : "RETIRADA"}</div>
+        <div><strong>End:</strong> ${o.address}</div>
+        <hr/>
+        ${(o.items || []).map(i => `
+          <div style="margin-bottom:4px;">
+            <div><strong>${i.qty}x ${i.name}</strong> - ${formatBRL(i.unitPrice * i.qty)}</div>
+            ${i.optionsText ? `<div style="font-size:11px;">+ ${i.optionsText}</div>` : ""}
+            ${i.notes ? `<div style="font-size:11px;">Obs: ${i.notes}</div>` : ""}
+          </div>`).join("")}
+        <hr/>
+        <div>Subtotal: ${formatBRL(o.subtotal)}</div>
+        <div>Taxa Entrega: ${formatBRL(o.fee)}</div>
+        ${o.discount > 0 ? `<div>Desconto: -${formatBRL(o.discount)}</div>` : ""}
+        <div>Pagamento: ${o.payment}</div>
+        <div style="font-weight:bold;font-size:14px;margin-top:4px;">TOTAL: ${formatBRL(o.total)}</div>
+      `;
+      setTimeout(() => {
+        window.print();
+        p.classList.add("hidden");
+      }, 150);
+    }
+
+    function printOrderReceipt(key) {
+      const o = currentOrders.find(x => (x.firestoreId || x.id) === key);
+      printOrderObject(o);
+    }
+
+    function selectPdvCategory(catId) {
+      pdvCategoryFilter = catId;
+      renderPdvCatalog();
     }
 
     function renderPdvCatalog() {
       const q = (document.getElementById("pdv-search").value || "").toLowerCase().trim();
-      document.getElementById("pdv-cat-pills").innerHTML = `<button type="button" class="filter-pill ${pdvCategoryFilter === "all" ? "active" : ""}" onclick="pdvCategoryFilter='all';renderPdvCatalog()">Todos</button>` +
-        (currentStore.categories || []).map(c => `<button type="button" class="filter-pill ${pdvCategoryFilter === c.id ? "active" : ""}" onclick="pdvCategoryFilter='${c.id}';renderPdvCatalog()">${c.name}</button>`).join("");
+      document.getElementById("pdv-cat-pills").innerHTML = `<button type="button" class="filter-pill ${pdvCategoryFilter === "all" ? "active" : ""}" onclick="selectPdvCategory('all')">Todos</button>` +
+        (currentStore.categories || []).map(c => `<button type="button" class="filter-pill ${pdvCategoryFilter === c.id ? "active" : ""}" onclick="selectPdvCategory('${c.id}')">${c.name}</button>`).join("");
       const items = (currentStore.products || []).filter(p => p.available && (pdvCategoryFilter === "all" || p.categoryId === pdvCategoryFilter) && (!q || p.name.toLowerCase().includes(q)));
-      document.getElementById("pdv-products-grid").innerHTML = items.map(p => `<div class="pdv-item-card" onclick="handlePdvItemClick('${p.id}')"><div style="font-weight:700;font-size:0.86rem;">${p.name}</div><div style="font-weight:800;color:var(--success);margin-top:6px;">${formatBRL(p.price)}</div></div>`).join("");
+      document.getElementById("pdv-products-grid").innerHTML = items.map(p => {
+        const groups = normalizeProductOptionGroups(p);
+        return `
+          <div class="pdv-item-card" onclick="handlePdvItemClick('${p.id}')">
+            <div>
+              <div style="font-weight:700;font-size:0.86rem;">${p.name}</div>
+              ${groups.length ? `<div style="font-size:0.72rem;color:var(--primary);font-weight:600;margin-top:3px;">Escolher sabores / opções</div>` : ""}
+            </div>
+            <div style="font-weight:800;color:var(--success);margin-top:6px;">${formatBRL(p.price)}</div>
+          </div>`;
+      }).join("");
     }
+
     function handlePdvItemClick(id) {
       const p = (currentStore.products || []).find(x => x.id === id);
       if (!p) return;
-      if (p.optionGroups?.length) openProductModal(id, "pdv");
-      else { pdvCart.push({ productId: p.id, name: p.name, qty: 1, unitPrice: p.price, optionsText: "", notes: "" }); renderPdvCart(); }
+      const groups = normalizeProductOptionGroups(p);
+      if (groups.length > 0) {
+        openProductModal(id, "pdv");
+      } else {
+        pdvCart.push({ productId: p.id, name: p.name, qty: 1, unitPrice: p.price, optionsText: "", notes: "" });
+        renderPdvCart();
+      }
     }
+
+    function removePdvCartItem(index) {
+      pdvCart.splice(index, 1);
+      renderPdvCart();
+    }
+
     function autoFillPdvCustomer(val) {
       const digits = val.replace(/\D/g, "");
       if (digits.length < 8) return;
       const past = currentOrders.find(o => (o.customerPhone || "").replace(/\D/g, "").includes(digits));
       if (past) {
         if (!document.getElementById("pdv-name").value) document.getElementById("pdv-name").value = past.customerName;
-        if (!document.getElementById("pdv-address").value && past.type === "delivery") document.getElementById("pdv-address").value = past.address;
+        if (!document.getElementById("pdv-addr-street").value && past.type === "delivery") document.getElementById("pdv-addr-street").value = past.address;
       }
     }
     function togglePdvDeliveryFields() {
@@ -1559,11 +1723,30 @@
       document.getElementById("pdv-fee").value = isDel ? currentStore.deliveryFee : 0; renderPdvCart();
     }
     function togglePdvChangeField() { document.getElementById("pdv-change-group").classList.toggle("hidden", document.getElementById("pdv-payment").value !== "Dinheiro"); renderPdvCart(); }
-    function clearPdvCart() { pdvCart = []; ["pdv-phone", "pdv-name", "pdv-address"].forEach(id => document.getElementById(id).value = ""); document.getElementById("pdv-discount").value = "0"; renderPdvCart(); }
+    function clearPdvCart() {
+      pdvCart = [];
+      ["pdv-phone", "pdv-name", "pdv-addr-street", "pdv-addr-number", "pdv-addr-neighborhood", "pdv-addr-complement", "pdv-addr-reference"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = "";
+      });
+      document.getElementById("pdv-discount").value = "0";
+      renderPdvCart();
+    }
     function renderPdvCart() {
       const box = document.getElementById("pdv-cart-items");
       box.innerHTML = !pdvCart.length ? '<p style="font-size:0.84rem;color:var(--text-muted);text-align:center;">Clique nos itens ao lado</p>' :
-        pdvCart.map((item, i) => `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed var(--border);font-size:0.84rem;"><div><strong>${item.qty}x ${item.name}</strong></div><div><span>${formatBRL(item.unitPrice * item.qty)}</span> <button type="button" style="color:#DC2626;font-weight:800;" onclick="pdvCart.splice(${i},1);renderPdvCart()">×</button></div></div>`).join("");
+        pdvCart.map((item, i) => `
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:8px 0;border-bottom:1px dashed var(--border);font-size:0.84rem;gap:8px;">
+            <div>
+              <div><strong>${item.qty}x ${item.name}</strong></div>
+              ${item.optionsText ? `<div style="font-size:0.74rem;color:var(--text-muted);">${item.optionsText}</div>` : ""}
+              ${item.notes ? `<div style="font-size:0.73rem;color:var(--warning);">Obs: ${item.notes}</div>` : ""}
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+              <strong>${formatBRL(item.unitPrice * item.qty)}</strong>
+              <button type="button" style="color:#DC2626;font-weight:800;font-size:1rem;padding:2px 6px;background:#FEE2E2;border-radius:6px;" onclick="removePdvCartItem(${i})">×</button>
+            </div>
+          </div>`).join("");
       const sub = pdvCart.reduce((s, i) => s + i.unitPrice * i.qty, 0);
       const total = Math.max(0, sub + parseFloat(document.getElementById("pdv-fee").value || 0) - parseFloat(document.getElementById("pdv-discount").value || 0));
       document.getElementById("pdv-subtotal").textContent = formatBRL(sub);
@@ -1573,21 +1756,34 @@
       if (document.getElementById("pdv-payment").value === "Dinheiro" && changeFor > total) { res.textContent = `Troco: ${formatBRL(changeFor - total)}`; res.classList.remove("hidden"); }
       else res.classList.add("hidden");
     }
-    async function submitPdvOrder(sendWa) {
+    async function submitPdvOrder(sendWa, autoPrint = false) {
       if (!pdvCart.length) { showToast("Adicione itens ao PDV.", "warning"); return; }
       const name = document.getElementById("pdv-name").value.trim() || "Cliente Balcão";
       const phone = document.getElementById("pdv-phone").value.trim();
       const type = document.getElementById("pdv-type").value;
-      const address = type === "delivery" ? (document.getElementById("pdv-address").value.trim() || "Balcão") : "Retirada no Balcão";
+      const fullAddr = buildFormattedAddress("pdv");
+      if (type === "delivery" && !fullAddr) {
+        showToast("Preencha o endereço de entrega (Rua, Número e Bairro).", "warning");
+        return;
+      }
+      const address = type === "delivery" ? fullAddr : "Retirada no Balcão";
       const payment = document.getElementById("pdv-payment").value;
       const sub = pdvCart.reduce((s, i) => s + i.unitPrice * i.qty, 0);
       const fee = parseFloat(document.getElementById("pdv-fee").value || 0);
       const discount = parseFloat(document.getElementById("pdv-discount").value || 0);
       const total = Math.max(0, sub + fee - discount);
       const order = { id: "PDV-" + Math.floor(1000 + Math.random() * 9000), customerName: name, customerPhone: phone || "Balcão", type, address, payment, items: structuredClone(pdvCart), subtotal: sub, fee, discount, total, status: "preparo", createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }), createdTimestamp: Date.now() };
-      await addDoc(collection(db, "stores", currentSlug, "orders"), order);
+      const docRef = await addDoc(collection(db, "stores", currentSlug, "orders"), order);
+      order.firestoreId = docRef.id;
       if (sendWa && phone) await dispatchWhatsAppMessage(phone, `Olá *${order.customerName}*! Pedido *${order.id}* registrado na *${currentStore.name}*! Total: ${formatBRL(order.total)}.`, false);
-      clearPdvCart(); switchAdminTab("orders"); showToast(`Pedido ${order.id} registrado!`, "success");
+      clearPdvCart();
+      switchAdminTab("orders");
+      showToast(`Pedido ${order.id} registrado!`, "success");
+      if (autoPrint) {
+        printOrderObject(order);
+      } else {
+        openOrderDetailModal(docRef.id);
+      }
     }
 
     function loadWaSettingsIntoUI() {
@@ -1632,19 +1828,17 @@
           if (token) { headers["apikey"] = token; headers["Authorization"] = `Bearer ${token}`; }
           const resp = await fetch(qrEndpoint, { headers });
           const data = await resp.json();
-          const imgSrc = data.base64 || data.qrcode || data.qr || "";
+          const imgSrc = data.base64 || data.qrcode?.base64 || data.qrcode || data.qr || "";
           if (imgSrc) {
             const src = imgSrc.startsWith("data:image") ? imgSrc : `data:image/png;base64,${imgSrc}`;
             box.innerHTML = `<img src="${src}" alt="QR Pareamento WhatsApp" style="width:190px;height:190px;border-radius:12px;background:#fff;padding:8px;" /><p style="font-size:0.8rem;font-weight:700;color:#15803D;margin-top:8px;">Escaneie com o WhatsApp da loja</p>`;
             return;
           }
-        } catch (e) {
-          showToast("Não foi possível buscar QR da API; exibindo QR de atendimento.", "warning");
-        }
+        } catch (e) {}
       }
       const cleanPhone = String(currentStore.phone || "").replace(/\D/g, "");
       const waLink = `https://wa.me/${cleanPhone}?text=${encodeURIComponent("Olá! Quero falar com " + currentStore.name)}`;
-      box.innerHTML = `<div id="cloud-qr-target" style="background:#fff;padding:12px;border-radius:12px;"></div><p style="font-size:0.8rem;font-weight:700;color:#15803D;margin-top:8px;">QR Code de Atendimento (${currentStore.name})</p><span style="font-size:0.74rem;color:var(--text-muted);">Abre conversa no WhatsApp com o número da loja.</span>`;
+      box.innerHTML = `<div id="cloud-qr-target" style="background:#fff;padding:12px;border-radius:12px;"></div><p style="font-size:0.8rem;font-weight:700;color:#15803D;margin-top:8px;">QR Code Direto (${currentStore.name})</p>`;
       new QRCode(document.getElementById("cloud-qr-target"), { text: waLink, width: 190, height: 190 });
     }
     async function dispatchWhatsAppMessage(phone, message, silent = false) {
@@ -1709,7 +1903,7 @@
         document.getElementById("pe-category").value = p.categoryId; document.getElementById("pe-desc").value = p.desc || "";
         document.getElementById("pe-price").value = p.price; document.getElementById("pe-old-price").value = p.oldPrice || "";
         document.getElementById("pe-img").value = p.img || ""; document.getElementById("pe-img-preview").src = p.img || currentStore.logo;
-        editorGroupsDraft = structuredClone(p.optionGroups || []);
+        editorGroupsDraft = structuredClone(normalizeProductOptionGroups(p));
       } else {
         document.getElementById("pe-modal-title").textContent = "Novo Produto";
         ["pe-id", "pe-name", "pe-desc", "pe-price", "pe-old-price", "pe-img"].forEach(i => document.getElementById(i).value = "");
@@ -1718,7 +1912,7 @@
       renderEditorGroups(); document.getElementById("product-editor-modal").classList.remove("hidden");
     }
     function closeProductEditor() { document.getElementById("product-editor-modal").classList.add("hidden"); }
-    function addEditorOptionGroup() { editorGroupsDraft.push({ id: "og-" + Date.now(), title: "Adicionais", required: false, multi: true, options: [{ id: "o-" + Date.now(), name: "Extra", price: 4.00 }] }); renderEditorGroups(); }
+    function addEditorOptionGroup() { editorGroupsDraft.push({ id: "og-" + Date.now(), title: "Sabores / Adicionais", required: false, multi: true, options: [{ id: "o-" + Date.now(), name: "Opção 1", price: 0 }] }); renderEditorGroups(); }
     function renderEditorGroups() {
       document.getElementById("pe-groups-container").innerHTML = editorGroupsDraft.map((g, gi) => `
         <div style="border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:8px;background:#F8FAFC;">
@@ -1822,12 +2016,12 @@
             <div>
               <div style="display:flex;align-items:center;gap:8px;"><strong>${st.name}</strong><span class="status-tag ${isActive ? "status-concluido" : "status-novo"}">${isActive ? "ATIVO" : "BLOQUEADO"}</span></div>
               <div style="font-size:0.8rem;color:var(--text-muted);margin-top:3px;">Login: <strong>${st.ownerEmail}</strong> • Venc: <strong>${st.expiresAt || "-"}</strong></div>
-              <div style="font-size:0.75rem;color:var(--info);">${getPublicStoreUrl(st.slug)}</div>
+              <div style="font-size:0.75rem;color:var(--info);">${getPublicStoreUrl(st.slug, false)}</div>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
               <button type="button" class="btn btn-outline btn-sm" onclick="copyTenantLink('${st.slug}')">Copiar Link</button>
               <button type="button" class="btn btn-dark btn-sm" onclick="manageTenantAsMaster('${st.slug}')">Gerenciar</button>
-              <button type="button" class="btn btn-outline btn-sm" onclick="openEditTenantModal('${st.slug}')">Editar Login</button>
+              <button type="button" class="btn btn-outline btn-sm" onclick="openEditTenantModal('${st.slug}')">Editar Login / Senha</button>
               <button type="button" class="btn btn-outline btn-sm" style="color:${isActive ? "#DC2626" : "#16A34A"};" onclick="toggleTenantStatus('${st.slug}', '${isActive ? "blocked" : "active"}')">${isActive ? "Bloquear" : "Ativar"}</button>
               ${st.slug !== DEFAULT_SLUG ? `<button type="button" class="btn btn-outline btn-sm" style="color:#DC2626;border-color:#FECACA;" onclick="deleteSaasTenant('${st.slug}')">Excluir</button>` : ""}
             </div>
@@ -1840,6 +2034,7 @@
       document.getElementById("edit-tenant-slug").value = st.slug;
       document.getElementById("edit-tenant-name").value = st.name || "";
       document.getElementById("edit-tenant-email").value = st.ownerEmail || "";
+      document.getElementById("edit-tenant-new-pass").value = "";
       document.getElementById("edit-tenant-expires").value = st.expiresAt || "";
       document.getElementById("edit-tenant-modal").classList.remove("hidden");
     }
@@ -1852,7 +2047,10 @@
       const slug = document.getElementById("edit-tenant-slug").value;
       const name = document.getElementById("edit-tenant-name").value.trim();
       const ownerEmail = document.getElementById("edit-tenant-email").value.toLowerCase().trim();
+      const newPassword = document.getElementById("edit-tenant-new-pass").value.trim();
       const expiresAt = document.getElementById("edit-tenant-expires").value;
+      const btn = document.getElementById("save-tenant-edit-btn");
+      btn.disabled = true; btn.textContent = "Salvando...";
       try {
         await updateDoc(doc(db, "stores", slug), { name, ownerEmail, expiresAt });
         if (currentSlug === slug) {
@@ -1860,21 +2058,25 @@
           currentStore.ownerEmail = ownerEmail;
           currentStore.expiresAt = expiresAt;
         }
+        if (newPassword) {
+          const idToken = await currentUser.getIdToken();
+          const resp = await fetch("/api/reset-password", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${idToken}` },
+            body: JSON.stringify({ targetEmail: ownerEmail, newPassword })
+          });
+          const resData = await resp.json().catch(() => ({}));
+          if (!resp.ok) {
+            throw new Error(resData.error || "Configure a função /api/reset-password na Vercel para alterar senhas diretamente.");
+          }
+        }
         closeEditTenantModal();
-        showToast("Acesso e assinatura atualizados!", "success");
+        showToast(newPassword ? "Login e senha alterados diretamente!" : "Dados atualizados!", "success");
         loadSaasTenantsList();
       } catch (err) {
-        showToast("Erro ao atualizar: " + err.message, "error");
-      }
-    }
-    async function sendTenantPasswordReset() {
-      const email = document.getElementById("edit-tenant-email").value.toLowerCase().trim();
-      if (!email) { showToast("Informe o e-mail do cliente.", "warning"); return; }
-      try {
-        await sendPasswordResetEmail(auth, email);
-        showToast(`E-mail de redefinição enviado para ${email}!`, "success");
-      } catch (err) {
-        showToast("Erro ao enviar redefinição: " + err.message, "error");
+        showToast("Erro: " + err.message, "error");
+      } finally {
+        btn.disabled = false; btn.textContent = "Salvar Alterações";
       }
     }
     async function deleteSaasTenant(slug) {
@@ -1894,7 +2096,7 @@
         showToast("Erro ao excluir loja: " + err.message, "error");
       }
     }
-    function copyTenantLink(slug) { const u = getPublicStoreUrl(slug); navigator.clipboard?.writeText(u); showToast(`Copiado: ${u}`, "success"); }
+    function copyTenantLink(slug) { const u = getPublicStoreUrl(slug, false); navigator.clipboard?.writeText(u); showToast(`Copiado: ${u}`, "success"); }
     async function toggleTenantStatus(slug, status) { await updateDoc(doc(db, "stores", slug), { status }); loadSaasTenantsList(); }
     function manageTenantAsMaster(slug) {
       currentSlug = slug;
@@ -1905,15 +2107,15 @@
     }
 
     Object.assign(window, {
-      switchView, openStoreInfoModal, renderCustomerMenu, selectCustomerCat, openProductModal, closeProductModal, changeModalQty, recalcModalPrice, confirmAddModalItem,
+      switchView, openStoreInfoModal, renderCustomerMenu, selectCustomerCat, openProductModal, closeProductModal, changeModalQty, handleModalOptionChange, recalcModalPrice, confirmAddModalItem,
       openCartDrawer, closeCartDrawer, applyCartCoupon, setCartDeliveryMode, toggleCustPaymentInfo, removeCustomerCartItem, finalizeCustomerOrder,
       handleAdminLogin, fillDemoLogin, handleAdminLogout, switchAdminTab, openStorePublicLink, copyCurrentStoreUrl, toggleStoreOpen, setOrderFilter,
-      advanceOrderStatus, openOrderDetailModal, closeOrderDetailModal, printOrderReceipt, renderPdvCatalog, handlePdvItemClick, clearPdvCart,
+      advanceOrderStatus, openOrderDetailModal, closeOrderDetailModal, printOrderReceipt, renderPdvCatalog, selectPdvCategory, handlePdvItemClick, removePdvCartItem, clearPdvCart,
       autoFillPdvCustomer, togglePdvDeliveryFields, togglePdvChangeField, renderPdvCart, submitPdvOrder, openProductEditor, closeProductEditor,
       handleProductImageUpload, addEditorOptionGroup, renderEditorGroups, saveProductFromEditor, toggleProductAvail, deleteProduct, addCategory,
       deleteCategory, addCoupon, deleteCoupon, onWaProviderChange, saveWaSettings, generateCloudPairingQR, copyTag, clearSimChat, sendSimMessage,
       handleStoreImageUpload, saveStoreSettings, exportBackupJSON, autoSlugifySaas, createSaasTenant, copyTenantLink, toggleTenantStatus, manageTenantAsMaster,
-      openEditTenantModal, closeEditTenantModal, saveTenantEdit, sendTenantPasswordReset, deleteSaasTenant,
+      openEditTenantModal, closeEditTenantModal, saveTenantEdit, deleteSaasTenant,
       openImportMenuModal, closeImportMenuModal, processImportMenuJson
     });
 
