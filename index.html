@@ -291,7 +291,7 @@
       <form onsubmit="handleAdminLogin(event)">
         <div class="form-group">
           <label class="form-label">E-mail Administrativo</label>
-          <input type="email" id="login-email" class="form-input" required placeholder="exp:admim@gmail.com" />
+          <input type="email" id="login-email" class="form-input" required placeholder="joaosoaresthi@gmail.com" />
         </div>
         <div class="form-group">
           <label class="form-label">Senha</label>
@@ -333,7 +333,7 @@
           <span class="nav-item-left"><i data-lucide="ticket" style="width:17px;height:17px;"></i> Cupons de Desconto</span>
         </button>
         <button type="button" class="nav-item" data-tab="whatsapp" onclick="switchAdminTab('whatsapp')">
-          <span class="nav-item-left"><i data-lucide="message-circle" style="width:17px;height:17px;"></i> WhatsApp & Robô (BETA)</span>
+          <span class="nav-item-left"><i data-lucide="message-circle" style="width:17px;height:17px;"></i> WhatsApp & Robô</span>
         </button>
         <button type="button" class="nav-item" data-tab="settings" onclick="switchAdminTab('settings')">
           <span class="nav-item-left"><i data-lucide="settings" style="width:17px;height:17px;"></i> Configurações da Loja</span>
@@ -470,7 +470,7 @@
           <div>
             <span style="background:rgba(255,255,255,0.16);padding:4px 10px;border-radius:999px;font-size:0.72rem;font-weight:800;">CLOUD API DIRETA</span>
             <h2 style="font-size:1.3rem;font-weight:800;margin-top:6px;">WhatsApp Automático & Robô Inteligente</h2>
-            <p style="font-size:0.84rem;opacity:0.9;max-width:600px;margin-top:4px;">Conecte via Z-API, Evolution API ou Webhook. Mensagens automáticas em segundo plano sem abrir novas abas.</p>
+            <p style="font-size:0.84rem;opacity:0.9;max-width:600px;margin-top:4px;">Conecte via Z-API, Evolution API ou Webhook. Para conectar sessão do WhatsApp Web via QR, configure a URL de QR do seu provedor ou use o QR direto de atendimento.</p>
           </div>
           <div style="display:flex;flex-direction:column;gap:6px;min-width:240px;">
             <label style="font-size:0.75rem;font-weight:700;">Provedor:</label>
@@ -493,12 +493,12 @@
                 <div class="form-group"><label class="form-label">URL da Instância / Endpoint</label><input type="text" id="wa-api-url" class="form-input" placeholder="https://api.seuprovedor.com/message/sendText/loja" /></div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
                   <div><label class="form-label">Token / API Key</label><input type="password" id="wa-api-token" class="form-input" /></div>
-                  <div><label class="form-label">URL QR Code (Opcional)</label><input type="text" id="wa-qr-endpoint" class="form-input" /></div>
+                  <div><label class="form-label">URL QR Code (Sessão Web)</label><input type="text" id="wa-qr-endpoint" class="form-input" placeholder="https://api.seuprovedor.com/instance/qrcode/loja" /></div>
                 </div>
               </div>
               <div id="wa-qr-box" class="qr-box-container">
-                <strong style="font-size:1rem;color:#15803D;">Sessão WhatsApp Conectada!</strong>
-                <p style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;max-width:340px;">Disparo automático ativo ao receber ou avançar pedidos.</p>
+                <strong style="font-size:1rem;color:#15803D;">Sessão WhatsApp Pronta!</strong>
+                <p style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;max-width:360px;">Clique em <strong>Exibir QR Code</strong> para gerar o QR de atendimento direto da loja ou carregar o QR da sua API.</p>
               </div>
               <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;">
                 <button type="button" class="btn btn-primary btn-sm" onclick="saveWaSettings()">Salvar Conexão</button>
@@ -639,6 +639,43 @@
         </div>
       </section>
     </main>
+  </div>
+
+  <!-- MODAL: EDITAR LOGIN / ASSINATURA DO CLIENTE -->
+  <div id="edit-tenant-modal" class="modal-backdrop hidden" onclick="if(event.target===this) closeEditTenantModal()">
+    <div class="modal-box" style="max-width:460px;">
+      <div class="modal-header">
+        <h3>Editar Acesso & Assinatura</h3>
+        <button type="button" class="modal-close" onclick="closeEditTenantModal()"><i data-lucide="x" style="width:18px;height:18px;"></i></button>
+      </div>
+      <form onsubmit="saveTenantEdit(event)">
+        <div class="modal-body">
+          <input type="hidden" id="edit-tenant-slug" />
+          <div class="form-group">
+            <label class="form-label">Nome da Loja</label>
+            <input type="text" id="edit-tenant-name" class="form-input" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">E-mail de Login do Cliente</label>
+            <input type="email" id="edit-tenant-email" class="form-input" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Data de Vencimento</label>
+            <input type="date" id="edit-tenant-expires" class="form-input" required />
+          </div>
+          <div style="background:#F8FAFC;border:1px solid var(--border);border-radius:10px;padding:12px;font-size:0.8rem;color:var(--text-muted);">
+            Para alterar a senha de um usuário no Firebase Authentication sem servidor externo, envie um e-mail de redefinição de senha para o e-mail cadastrado:
+            <div style="margin-top:8px;">
+              <button type="button" class="btn btn-outline btn-sm" onclick="sendTenantPasswordReset()">Enviar E-mail de Redefinição de Senha</button>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closeEditTenantModal()">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+        </div>
+      </form>
+    </div>
   </div>
 
   <!-- MODAL: IMPORTAR CARDÁPIO JSON -->
@@ -797,8 +834,8 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, addDoc, getDocs, query, where, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, addDoc, getDocs, query, where, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAsW-nxExFbZNml6StIAScnXbA8vhjQv0g",
@@ -875,6 +912,7 @@
     let currentStore = createDefaultStoreTemplate(DEFAULT_SLUG, "Brava Burger & Grill", MASTER_EMAIL);
     let currentOrders = [];
     let currentUser = null;
+    let saasStoresCache = [];
     let unsubscribeStore = null;
     let unsubscribeOrders = null;
     let activeCustomerCat = "all";
@@ -887,6 +925,19 @@
     let pdvCategoryFilter = "all";
     let editorGroupsDraft = [];
     window.currentStore = currentStore;
+
+    const isMasterUser = () => Boolean(currentUser && (currentUser.email || "").toLowerCase() === MASTER_EMAIL.toLowerCase());
+    const syncMasterMenuVisibility = () => {
+      document.getElementById("nav-saas-master").classList.toggle("hidden", !isMasterUser());
+    };
+    const syncUrlSlug = (slug, keepPainel = false) => {
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.set("loja", slug);
+        if (keepPainel) url.searchParams.set("painel", "1");
+        window.history.replaceState({}, "", url.toString());
+      } catch (e) {}
+    };
 
     const formatBRL = (val) => Number(val || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -1025,12 +1076,12 @@
             return;
           }
         } else {
-          currentStore = snap.data();
+          currentStore = { slug, ...snap.data() };
         }
         applyBrandTheme();
 
         const isExpired = currentStore.expiresAt && new Date(currentStore.expiresAt + "T23:59:59") < new Date();
-        if ((currentStore.status === "blocked" || isExpired) && (!currentUser || currentUser.email !== MASTER_EMAIL)) {
+        if ((currentStore.status === "blocked" || isExpired) && !isMasterUser()) {
           showBlockedScreen("Assinatura / Loja Indisponível", "Estabelecimento suspenso. Contate o suporte.");
           return;
         }
@@ -1071,13 +1122,16 @@
 
     function switchView(viewName) {
       ["view-loading", "view-blocked", "view-customer", "view-login", "view-admin"].forEach(id => document.getElementById(id).classList.add("hidden"));
+      syncMasterMenuVisibility();
       if (viewName === "customer") {
+        syncUrlSlug(currentSlug, false);
         document.getElementById("view-customer").classList.remove("hidden");
         attachStoreRealtimeListeners(currentSlug, false);
       } else if (viewName === "login") {
         if (currentUser) { switchView("admin"); return; }
         document.getElementById("view-login").classList.remove("hidden");
       } else if (viewName === "admin") {
+        syncUrlSlug(currentSlug, true);
         document.getElementById("view-admin").classList.remove("hidden");
         attachStoreRealtimeListeners(currentSlug, true);
       }
@@ -1086,23 +1140,30 @@
 
     function bootApp() {
       const params = new URLSearchParams(window.location.search);
-      const lojaParam = params.get("loja");
+      const lojaParam = (params.get("loja") || "").toLowerCase().trim();
       const isPainel = params.has("painel");
-      if (lojaParam) currentSlug = lojaParam.toLowerCase().trim();
+      if (lojaParam) currentSlug = lojaParam;
 
       onAuthStateChanged(auth, async (user) => {
         currentUser = user;
+        syncMasterMenuVisibility();
         if (user) {
           const email = (user.email || "").toLowerCase();
           if (email === MASTER_EMAIL.toLowerCase()) {
-            document.getElementById("nav-saas-master").classList.remove("hidden");
             if (!lojaParam) currentSlug = DEFAULT_SLUG;
             switchView("admin");
           } else {
             try {
               const snap = await getDocs(query(collection(db, "stores"), where("ownerEmail", "==", email)));
-              if (!snap.empty) { currentSlug = snap.docs[0].id; switchView("admin"); }
-              else showBlockedScreen("Nenhuma Loja Vinculada", "Seu usuário não possui restaurante vinculado.");
+              if (!snap.empty) {
+                const matchedDoc = lojaParam
+                  ? (snap.docs.find(d => d.id === lojaParam) || snap.docs[0])
+                  : snap.docs[0];
+                currentSlug = matchedDoc.id;
+                switchView("admin");
+              } else {
+                showBlockedScreen("Nenhuma Loja Vinculada", "Seu usuário não possui restaurante vinculado.");
+              }
             } catch (e) { showToast("Erro ao verificar loja.", "error"); }
           }
         } else {
@@ -1344,11 +1405,12 @@
     }
     async function handleAdminLogout() {
       await signOut(auth); currentUser = null;
-      document.getElementById("nav-saas-master").classList.add("hidden");
+      syncMasterMenuVisibility();
       switchView("customer");
     }
 
     function initAdminDashboard() {
+      syncMasterMenuVisibility();
       document.getElementById("admin-sidebar-logo").src = currentStore.logo;
       document.getElementById("admin-sidebar-name").textContent = currentStore.name;
       document.getElementById("admin-store-toggle").checked = currentStore.isOpen;
@@ -1359,17 +1421,31 @@
     }
 
     function switchAdminTab(tabName) {
+      if (tabName === "saas" && !isMasterUser()) {
+        showToast("Acesso restrito ao administrador Master.", "error");
+        tabName = "orders";
+      }
       const titles = { orders: "Pedidos & Vendas", pdv: "PDV / Tirador de Pedido", products: "Cardápio & Produtos", categories: "Categorias", coupons: "Cupons", whatsapp: "WhatsApp & Robô", settings: "Configurações da Loja", saas: "Clientes SaaS (Master)" };
       document.getElementById("admin-page-title").textContent = titles[tabName] || "Gestor";
       document.querySelectorAll(".nav-item").forEach(btn => btn.classList.toggle("active", btn.dataset.tab === tabName));
       ["orders", "pdv", "products", "categories", "coupons", "whatsapp", "settings", "saas"].forEach(t => document.getElementById(`tab-${t}`).classList.toggle("hidden", t !== tabName));
-      if (tabName === "saas") loadSaasTenantsList();
+      if (tabName === "saas" && isMasterUser()) loadSaasTenantsList();
       if (window.lucide) lucide.createIcons();
     }
 
-    const getPublicStoreUrl = (slug = currentSlug) => `${window.location.origin}${window.location.pathname}?loja=${encodeURIComponent(slug)}`;
-    function copyCurrentStoreUrl() { const u = getPublicStoreUrl(); navigator.clipboard?.writeText(u); showToast(`Link copiado: ${u}`, "success"); }
-    function openStorePublicLink() { window.open(getPublicStoreUrl(), "_blank"); }
+    const getPublicStoreUrl = (slug = currentSlug) => {
+      const baseUrl = `${window.location.origin}${window.location.pathname}`;
+      return `${baseUrl}?loja=${encodeURIComponent(slug)}`;
+    };
+    function copyCurrentStoreUrl() {
+      const u = getPublicStoreUrl(currentSlug);
+      navigator.clipboard?.writeText(u);
+      showToast(`Link do cardápio copiado: ${u}`, "success");
+    }
+    function openStorePublicLink() {
+      const u = getPublicStoreUrl(currentSlug);
+      window.open(u, "_blank", "noopener,noreferrer");
+    }
     async function toggleStoreOpen(isOpen) { currentStore.isOpen = isOpen; await persistStoreData(); updateStoreStatusText(); showToast(isOpen ? "Loja ABERTA!" : "Loja FECHADA.", isOpen ? "success" : "warning"); }
     function updateStoreStatusText() {
       const el = document.getElementById("admin-store-status-text");
@@ -1546,10 +1622,29 @@
       await persistStoreData(); showToast("WhatsApp salvo na nuvem!", "success");
     }
     function copyTag(tag) { navigator.clipboard?.writeText(tag); showToast(`Tag ${tag} copiada!`, "success"); }
-    function generateCloudPairingQR() {
-      const cleanPhone = String(currentStore.phone).replace(/\D/g, "");
-      const waLink = `https://wa.me/${cleanPhone}?text=${encodeURIComponent("Olá! Quero pedir no " + currentStore.name)}`;
-      document.getElementById("wa-qr-box").innerHTML = `<div id="cloud-qr-target" style="background:#fff;padding:12px;border-radius:12px;"></div><p style="font-size:0.8rem;font-weight:700;color:#15803D;margin-top:8px;">QR Code Direto (${currentStore.name})</p>`;
+    async function generateCloudPairingQR() {
+      const qrEndpoint = (document.getElementById("wa-qr-endpoint").value || currentStore.whatsapp?.qrEndpoint || "").trim();
+      const box = document.getElementById("wa-qr-box");
+      if (qrEndpoint) {
+        try {
+          const headers = {};
+          const token = (document.getElementById("wa-api-token").value || currentStore.whatsapp?.apiToken || "").trim();
+          if (token) { headers["apikey"] = token; headers["Authorization"] = `Bearer ${token}`; }
+          const resp = await fetch(qrEndpoint, { headers });
+          const data = await resp.json();
+          const imgSrc = data.base64 || data.qrcode || data.qr || "";
+          if (imgSrc) {
+            const src = imgSrc.startsWith("data:image") ? imgSrc : `data:image/png;base64,${imgSrc}`;
+            box.innerHTML = `<img src="${src}" alt="QR Pareamento WhatsApp" style="width:190px;height:190px;border-radius:12px;background:#fff;padding:8px;" /><p style="font-size:0.8rem;font-weight:700;color:#15803D;margin-top:8px;">Escaneie com o WhatsApp da loja</p>`;
+            return;
+          }
+        } catch (e) {
+          showToast("Não foi possível buscar QR da API; exibindo QR de atendimento.", "warning");
+        }
+      }
+      const cleanPhone = String(currentStore.phone || "").replace(/\D/g, "");
+      const waLink = `https://wa.me/${cleanPhone}?text=${encodeURIComponent("Olá! Quero falar com " + currentStore.name)}`;
+      box.innerHTML = `<div id="cloud-qr-target" style="background:#fff;padding:12px;border-radius:12px;"></div><p style="font-size:0.8rem;font-weight:700;color:#15803D;margin-top:8px;">QR Code de Atendimento (${currentStore.name})</p><span style="font-size:0.74rem;color:var(--text-muted);">Abre conversa no WhatsApp com o número da loja.</span>`;
       new QRCode(document.getElementById("cloud-qr-target"), { text: waLink, width: 190, height: 190 });
     }
     async function dispatchWhatsAppMessage(phone, message, silent = false) {
@@ -1694,6 +1789,7 @@
     }
     async function createSaasTenant(e) {
       e.preventDefault();
+      if (!isMasterUser()) { showToast("Sem permissão Master.", "error"); return; }
       const storeName = document.getElementById("saas-store-name").value.trim();
       const slug = document.getElementById("saas-store-slug").value.toLowerCase().trim();
       const ownerEmail = document.getElementById("saas-owner-email").value.toLowerCase().trim();
@@ -1713,8 +1809,11 @@
       finally { btn.disabled = false; btn.textContent = "Criar Loja & Acesso"; }
     }
     async function loadSaasTenantsList() {
+      if (!isMasterUser()) return;
       const snap = await getDocs(collection(db, "stores"));
-      const stores = []; snap.forEach(d => stores.push(d.data()));
+      const stores = [];
+      snap.forEach(d => stores.push({ slug: d.id, ...d.data() }));
+      saasStoresCache = stores;
       document.getElementById("saas-total-count").textContent = `${stores.length} loja(s)`;
       document.getElementById("saas-tenants-list").innerHTML = stores.map(st => {
         const isActive = st.status !== "blocked";
@@ -1728,14 +1827,82 @@
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
               <button type="button" class="btn btn-outline btn-sm" onclick="copyTenantLink('${st.slug}')">Copiar Link</button>
               <button type="button" class="btn btn-dark btn-sm" onclick="manageTenantAsMaster('${st.slug}')">Gerenciar</button>
+              <button type="button" class="btn btn-outline btn-sm" onclick="openEditTenantModal('${st.slug}')">Editar Login</button>
               <button type="button" class="btn btn-outline btn-sm" style="color:${isActive ? "#DC2626" : "#16A34A"};" onclick="toggleTenantStatus('${st.slug}', '${isActive ? "blocked" : "active"}')">${isActive ? "Bloquear" : "Ativar"}</button>
+              ${st.slug !== DEFAULT_SLUG ? `<button type="button" class="btn btn-outline btn-sm" style="color:#DC2626;border-color:#FECACA;" onclick="deleteSaasTenant('${st.slug}')">Excluir</button>` : ""}
             </div>
           </div>`;
       }).join("");
     }
+    function openEditTenantModal(slug) {
+      const st = saasStoresCache.find(x => x.slug === slug);
+      if (!st) return;
+      document.getElementById("edit-tenant-slug").value = st.slug;
+      document.getElementById("edit-tenant-name").value = st.name || "";
+      document.getElementById("edit-tenant-email").value = st.ownerEmail || "";
+      document.getElementById("edit-tenant-expires").value = st.expiresAt || "";
+      document.getElementById("edit-tenant-modal").classList.remove("hidden");
+    }
+    function closeEditTenantModal() {
+      document.getElementById("edit-tenant-modal").classList.add("hidden");
+    }
+    async function saveTenantEdit(e) {
+      e.preventDefault();
+      if (!isMasterUser()) return;
+      const slug = document.getElementById("edit-tenant-slug").value;
+      const name = document.getElementById("edit-tenant-name").value.trim();
+      const ownerEmail = document.getElementById("edit-tenant-email").value.toLowerCase().trim();
+      const expiresAt = document.getElementById("edit-tenant-expires").value;
+      try {
+        await updateDoc(doc(db, "stores", slug), { name, ownerEmail, expiresAt });
+        if (currentSlug === slug) {
+          currentStore.name = name;
+          currentStore.ownerEmail = ownerEmail;
+          currentStore.expiresAt = expiresAt;
+        }
+        closeEditTenantModal();
+        showToast("Acesso e assinatura atualizados!", "success");
+        loadSaasTenantsList();
+      } catch (err) {
+        showToast("Erro ao atualizar: " + err.message, "error");
+      }
+    }
+    async function sendTenantPasswordReset() {
+      const email = document.getElementById("edit-tenant-email").value.toLowerCase().trim();
+      if (!email) { showToast("Informe o e-mail do cliente.", "warning"); return; }
+      try {
+        await sendPasswordResetEmail(auth, email);
+        showToast(`E-mail de redefinição enviado para ${email}!`, "success");
+      } catch (err) {
+        showToast("Erro ao enviar redefinição: " + err.message, "error");
+      }
+    }
+    async function deleteSaasTenant(slug) {
+      if (!isMasterUser()) return;
+      const st = saasStoresCache.find(x => x.slug === slug);
+      if (!confirm(`Excluir permanentemente a loja "${st?.name || slug}" do banco de dados?`)) return;
+      try {
+        await deleteDoc(doc(db, "stores", slug));
+        if (currentSlug === slug) {
+          currentSlug = DEFAULT_SLUG;
+          syncUrlSlug(DEFAULT_SLUG, true);
+          attachStoreRealtimeListeners(DEFAULT_SLUG, true);
+        }
+        showToast("Loja excluída com sucesso!", "success");
+        loadSaasTenantsList();
+      } catch (err) {
+        showToast("Erro ao excluir loja: " + err.message, "error");
+      }
+    }
     function copyTenantLink(slug) { const u = getPublicStoreUrl(slug); navigator.clipboard?.writeText(u); showToast(`Copiado: ${u}`, "success"); }
     async function toggleTenantStatus(slug, status) { await updateDoc(doc(db, "stores", slug), { status }); loadSaasTenantsList(); }
-    function manageTenantAsMaster(slug) { currentSlug = slug; attachStoreRealtimeListeners(slug, true); switchAdminTab("orders"); showToast(`Gerenciando: ${slug}`, "success"); }
+    function manageTenantAsMaster(slug) {
+      currentSlug = slug;
+      syncUrlSlug(slug, true);
+      attachStoreRealtimeListeners(slug, true);
+      switchAdminTab("orders");
+      showToast(`Gerenciando: ${slug}`, "success");
+    }
 
     Object.assign(window, {
       switchView, openStoreInfoModal, renderCustomerMenu, selectCustomerCat, openProductModal, closeProductModal, changeModalQty, recalcModalPrice, confirmAddModalItem,
@@ -1746,6 +1913,7 @@
       handleProductImageUpload, addEditorOptionGroup, renderEditorGroups, saveProductFromEditor, toggleProductAvail, deleteProduct, addCategory,
       deleteCategory, addCoupon, deleteCoupon, onWaProviderChange, saveWaSettings, generateCloudPairingQR, copyTag, clearSimChat, sendSimMessage,
       handleStoreImageUpload, saveStoreSettings, exportBackupJSON, autoSlugifySaas, createSaasTenant, copyTenantLink, toggleTenantStatus, manageTenantAsMaster,
+      openEditTenantModal, closeEditTenantModal, saveTenantEdit, sendTenantPasswordReset, deleteSaasTenant,
       openImportMenuModal, closeImportMenuModal, processImportMenuJson
     });
 
