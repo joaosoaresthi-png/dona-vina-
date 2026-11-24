@@ -1987,7 +1987,7 @@
       const route = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(currentStore.address || "")}&destination=${encodeURIComponent(order.address)}&travelmode=driving`;
       const items = (order.items || []).map(i => `${i.qty}× ${i.name}`).join(", ");
       const message = `Olá ${rider.name}! O pedido ${order.id} está pronto para entrega.\n\nCliente: ${order.customerName}\nEndereço: ${order.address}\nPedido: ${items}\n\nRota: ${route}`;
-      window.open(`https://wa.me/${normalizeWhatsAppPhone(rider.phone)}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
+      await dispatchWhatsAppMessage(rider.phone, message);
     }
 
     const getPublicStoreUrl = (slug = currentSlug, vitrine = false) => {
@@ -2379,7 +2379,8 @@
           });
           const data = await resp.json().catch(() => ({}));
           if (!resp.ok) throw new Error(data.error || "Falha ao enviar mensagem.");
-          if (!silent) showToast(`Mensagem enviada para ${phone}!`, "success");
+          if (data.deliveryConfirmed === false) throw new Error(data.error || "O WhatsApp não confirmou a entrega da mensagem.");
+          if (!silent) showToast(`Mensagem entregue para ${phone}!`, "success");
         } catch (e) { if (!silent) showToast(e.message, "error"); }
         return;
       }
