@@ -628,14 +628,15 @@
       <section id="tab-whatsapp" class="hidden">
         <div class="wa-hero-banner">
           <div>
-            <span style="background:rgba(255,255,255,0.16);padding:4px 10px;border-radius:999px;font-size:0.72rem;font-weight:800;">CLOUD API DIRETA</span>
+            <span style="background:rgba(255,255,255,0.16);padding:4px 10px;border-radius:999px;font-size:0.72rem;font-weight:800;">WHATSAPP WEB</span>
             <h2 style="font-size:1.3rem;font-weight:800;margin-top:6px;">WhatsApp Automático & Robô Inteligente</h2>
-            <p style="font-size:0.84rem;opacity:0.9;max-width:600px;margin-top:4px;">Conecte via Z-API, Evolution API ou Webhook.</p>
+            <p style="font-size:0.84rem;opacity:0.9;max-width:600px;margin-top:4px;">Conecte a sessão WhatsApp da loja pelo serviço Railway.</p>
           </div>
           <div style="display:flex;flex-direction:column;gap:6px;min-width:240px;">
             <label style="font-size:0.75rem;font-weight:700;">Provedor:</label>
             <select id="wa-provider" class="form-select" style="background:#064E3B;color:#fff;border-color:rgba(255,255,255,0.25);" onchange="onWaProviderChange()">
               <option value="cloud_demo">⚡ Automático Integrado (Pronto p/ Uso)</option>
+              <option value="railway_bridge">🔌 WhatsApp Web (Serviço Railway)</option>
               <option value="evolution">☁️ Evolution API (Nuvem)</option>
               <option value="zapi">☁️ Z-API (Nuvem)</option>
               <option value="webhook">🔗 Webhook / Make / n8n</option>
@@ -646,11 +647,11 @@
           <div>
             <div class="panel-card">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-                <h3 style="font-size:1rem;font-weight:800;">Pareamento WhatsApp Cloud</h3>
-                <span class="status-tag status-concluido">CONECTADO</span>
+                <h3 style="font-size:1rem;font-weight:800;">Conexão WhatsApp</h3>
+                <span id="wa-connection-status" class="status-tag status-novo">DESCONECTADO</span>
               </div>
               <div id="wa-cloud-fields" class="hidden" style="margin-bottom:14px;padding:14px;background:#F8FAFC;border-radius:12px;border:1px solid var(--border);">
-                <div class="form-group"><label class="form-label">URL da Instância / Endpoint</label><input type="text" id="wa-api-url" class="form-input" placeholder="https://api.seuprovedor.com/message/sendText/loja" /></div>
+                <div class="form-group"><label class="form-label">URL do serviço</label><input type="url" id="wa-api-url" class="form-input" placeholder="https://seu-servico.up.railway.app" /></div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
                   <div><label class="form-label">Token / API Key</label><input type="password" id="wa-api-token" class="form-input" /></div>
                   <div><label class="form-label">URL QR Code (Sessão Web)</label><input type="text" id="wa-qr-endpoint" class="form-input" placeholder="https://api.seuprovedor.com/instance/qrcode/loja" /></div>
@@ -1782,9 +1783,17 @@
         status: "novo", createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
         createdTimestamp: Date.now()
       };
-      try { await addDoc(collection(db, "stores", currentSlug, "orders"), newOrder); }
+      let orderRef;
+      try { orderRef = await addDoc(collection(db, "stores", currentSlug, "orders"), newOrder); }
       catch (e) { showToast("Erro ao enviar pedido.", "error"); return; }
-      await dispatchWhatsAppMessage(newOrder.customerPhone, formatTemplateMessage(currentStore.whatsapp?.tplConfirmacao, newOrder), true);
+      if (currentStore.whatsapp?.provider === "railway_bridge" && currentStore.whatsapp?.apiUrl) {
+        const base = currentStore.whatsapp.apiUrl.trim().replace(/\/+$/, "");
+        fetch(`${base}/api/stores/${encodeURIComponent(currentSlug)}/orders/${encodeURIComponent(orderRef.id)}/confirmation`, {
+          method: "POST"
+        }).catch(() => {});
+      } else {
+        await dispatchWhatsAppMessage(newOrder.customerPhone, formatTemplateMessage(currentStore.whatsapp?.tplConfirmacao, newOrder), true);
+      }
 
       customerCart = []; appliedCoupon = null; updateFloatingCartBar();
       document.getElementById("cart-items-list").innerHTML = "";
@@ -2101,15 +2110,20 @@
       document.getElementById("bot-msg-pix").value = w.botPix || "";
       document.getElementById("bot-msg-hours").value = w.botHours || "";
       onWaProviderChange(false);
+      if (w.provider === "railway_bridge") void refreshWaBridgeStatus();
     }
     function onWaProviderChange(save = true) {
-      document.getElementById("wa-cloud-fields").classList.toggle("hidden", document.getElementById("wa-provider").value === "cloud_demo");
+      const provider = document.getElementById("wa-provider").value;
+      document.getElementById("wa-cloud-fields").classList.toggle("hidden", provider === "cloud_demo");
+      const bridge = provider === "railway_bridge";
+      document.getElementById("wa-api-token").closest("div").classList.toggle("hidden", bridge);
+      document.getElementById("wa-qr-endpoint").closest("div").classList.toggle("hidden", bridge);
       if (save) saveWaSettings();
     }
     async function saveWaSettings() {
       currentStore.whatsapp = {
         provider: document.getElementById("wa-provider").value, apiUrl: document.getElementById("wa-api-url").value.trim(),
-        apiToken: document.getElementById("wa-api-token").value.trim(), qrEndpoint: document.getElementById("wa-qr-endpoint").value.trim(),
+        apiToken: document.getElementById("wa-provider").value === "railway_bridge" ? "" : document.getElementById("wa-api-token").value.trim(), qrEndpoint: document.getElementById("wa-qr-endpoint").value.trim(),
         tplConfirmacao: document.getElementById("tpl-confirmacao").value, tplPreparo: document.getElementById("tpl-preparo").value,
         tplEntrega: document.getElementById("tpl-entrega").value, tplConcluido: document.getElementById("tpl-concluido").value,
         botEnabled: document.getElementById("bot-enabled-toggle").checked, botWelcome: document.getElementById("bot-msg-welcome").value,
@@ -2118,7 +2132,65 @@
       await persistStoreData(); showToast("WhatsApp salvo na nuvem!", "success");
     }
     function copyTag(tag) { navigator.clipboard?.writeText(tag); showToast(`Tag ${tag} copiada!`, "success"); }
+    function updateWaConnectionStatus(state) {
+      const el = document.getElementById("wa-connection-status");
+      if (!el) return;
+      const connected = state === "connected";
+      el.textContent = connected ? "CONECTADO" : state === "connecting" ? "CONECTANDO" : state === "qr" ? "AGUARDANDO LEITURA" : "DESCONECTADO";
+      el.className = `status-tag ${connected ? "status-concluido" : state === "qr" ? "status-preparo" : "status-novo"}`;
+    }
+    async function refreshWaBridgeStatus() {
+      try {
+        if (!currentUser) return;
+        const base = document.getElementById("wa-api-url").value.trim().replace(/\/+$/, "");
+        if (!base) return;
+        const token = await currentUser.getIdToken();
+        const resp = await fetch(`${base}/api/stores/${encodeURIComponent(currentSlug)}/whatsapp/status`, { headers: { "Authorization": `Bearer ${token}` } });
+        const data = await resp.json();
+        if (resp.ok) updateWaConnectionStatus(data.state);
+      } catch (e) { /* estado indisponível até o serviço Railway responder */ }
+    }
+    async function pollWaBridgeStatus(base, token) {
+      for (let i = 0; i < 30; i++) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        try {
+          const resp = await fetch(`${base}/api/stores/${encodeURIComponent(currentSlug)}/whatsapp/status`, { headers: { "Authorization": `Bearer ${token}` } });
+          const data = await resp.json();
+          if (!resp.ok) throw new Error(data.error || "Falha ao consultar conexão.");
+          updateWaConnectionStatus(data.state);
+          const box = document.getElementById("wa-qr-box");
+          if (data.state === "connected") { box.innerHTML = "<strong style='color:#15803D;'>WhatsApp conectado com sucesso.</strong>"; return; }
+          if (data.qr) {
+            box.innerHTML = '<div id="cloud-qr-target" style="background:#fff;padding:12px;border-radius:12px;"></div><p style="font-size:0.8rem;font-weight:700;color:#15803D;margin-top:8px;">Escaneie em WhatsApp &gt; Aparelhos conectados</p>';
+            new QRCode(document.getElementById("cloud-qr-target"), { text: data.qr, width: 190, height: 190 });
+          }
+          if (data.state === "disconnected" || data.state === "logged_out" || data.state === "error") { box.insertAdjacentHTML("beforeend", "<p>Conexão encerrada. Gere um novo QR Code.</p>"); return; }
+        } catch (e) { return; }
+      }
+    }
     async function generateCloudPairingQR() {
+      if (document.getElementById("wa-provider").value === "railway_bridge") {
+        const base = document.getElementById("wa-api-url").value.trim().replace(/\/+$/, "");
+        const box = document.getElementById("wa-qr-box");
+        if (!base) { showToast("Informe a URL pública do serviço Railway.", "warning"); return; }
+        if (!currentUser) { showToast("Entre na conta da loja para conectar o WhatsApp.", "warning"); return; }
+        box.innerHTML = "<p>Iniciando conexão com o WhatsApp…</p>";
+        try {
+          const token = await currentUser.getIdToken();
+          const resp = await fetch(`${base}/api/stores/${encodeURIComponent(currentSlug)}/whatsapp/connect`, { method: "POST", headers: { "Authorization": `Bearer ${token}` } });
+          const data = await resp.json();
+          if (!resp.ok) throw new Error(data.error || "Não foi possível iniciar a conexão.");
+          if (data.qr) {
+            box.innerHTML = '<div id="cloud-qr-target" style="background:#fff;padding:12px;border-radius:12px;"></div><p style="font-size:0.8rem;font-weight:700;color:#15803D;margin-top:8px;">Escaneie em WhatsApp &gt; Aparelhos conectados</p>';
+            new QRCode(document.getElementById("cloud-qr-target"), { text: data.qr, width: 190, height: 190 });
+          } else {
+            box.innerHTML = `<p>${data.state === "connected" ? "WhatsApp conectado." : "Aguardando QR Code do WhatsApp…"}</p>`;
+          }
+          updateWaConnectionStatus(data.state);
+          await pollWaBridgeStatus(base, token);
+        } catch (e) { box.textContent = e.message; box.style.color = "#DC2626"; showToast(e.message, "error"); }
+        return;
+      }
       const qrEndpoint = (document.getElementById("wa-qr-endpoint").value || currentStore.whatsapp?.qrEndpoint || "").trim();
       const box = document.getElementById("wa-qr-box");
       if (qrEndpoint) {
@@ -2145,6 +2217,22 @@
       let digits = String(phone).replace(/\D/g, "");
       if (digits.length === 10 || digits.length === 11) digits = "55" + digits;
       const w = currentStore.whatsapp || {};
+      if (w.provider === "railway_bridge") {
+        try {
+          if (!currentUser) throw new Error("Sua sessão expirou. Entre novamente.");
+          const base = String(w.apiUrl || "").trim().replace(/\/+$/, "");
+          if (!base) throw new Error("Informe a URL do serviço Railway.");
+          const token = await currentUser.getIdToken();
+          const resp = await fetch(`${base}/api/stores/${encodeURIComponent(currentSlug)}/whatsapp/send`, {
+            method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+            body: JSON.stringify({ phone: digits, text: message })
+          });
+          const data = await resp.json().catch(() => ({}));
+          if (!resp.ok) throw new Error(data.error || "Falha ao enviar mensagem.");
+          if (!silent) showToast(`Mensagem enviada para ${phone}!`, "success");
+        } catch (e) { if (!silent) showToast(e.message, "error"); }
+        return;
+      }
       if (w.provider !== "cloud_demo" && w.apiUrl) {
         try {
           const headers = { "Content-Type": "application/json" };
@@ -2152,7 +2240,7 @@
           await fetch(w.apiUrl, { method: "POST", headers, body: JSON.stringify({ phone: digits, number: digits, text: message, message }) });
         } catch (e) {}
       }
-      if (!silent) showToast(`Mensagem enviada para ${phone}!`, "success");
+      if (!silent) showToast("Configure um provedor de WhatsApp primeiro.", "warning");
     }
     function clearSimChat() { document.getElementById("wa-sim-messages").innerHTML = ""; }
     function sendSimMessage() {
