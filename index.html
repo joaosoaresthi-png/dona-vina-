@@ -78,7 +78,7 @@
 
     /* TIMELINE DO RASTREIO DO CLIENTE */
     .track-order-card { border: 1px solid var(--border); border-radius: 14px; padding: 14px; background: #fff; margin-bottom: 12px; text-align: left; }
-    .track-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 12px 0; }
+    .track-steps { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; margin: 12px 0; }
     .track-step { text-align: center; padding: 6px 4px; border-radius: 8px; font-size: 0.68rem; font-weight: 700; background: #F1F5F9; color: #94A3B8; }
     .track-step.done { background: #DCFCE7; color: #15803D; }
     .track-step.current { background: var(--primary); color: #fff; }
@@ -117,19 +117,32 @@
     .menu-section { margin-bottom: 26px; }
     .menu-section-title { font-size: 1.12rem; font-weight: 800; margin-bottom: 12px; }
     .products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 14px; }
-    .product-card { display: flex; justify-content: space-between; gap: 12px; padding: 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); cursor: pointer; transition: 0.2s; }
-    .product-card:hover { border-color: #CBD5E1; box-shadow: var(--shadow-md); }
+    .product-card { display: flex; justify-content: space-between; gap: 14px; padding: 12px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); cursor: pointer; transition: border-color 0.18s, transform 0.18s, box-shadow 0.18s; }
+    .product-card:hover { border-color: rgba(234,29,44,0.42); box-shadow: 0 10px 24px rgba(15,23,42,0.08); transform: translateY(-2px); }
+    .product-card:focus-visible { outline: 3px solid rgba(234,29,44,0.35); outline-offset: 2px; }
     .product-info { flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
-    .product-name { font-weight: 700; font-size: 0.95rem; margin-bottom: 4px; }
+    .product-name { font-weight: 800; font-size: 0.98rem; margin-bottom: 4px; letter-spacing: -0.02em; }
     .product-desc { font-size: 0.8rem; color: var(--text-muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 8px; }
     .product-price-row { display: flex; align-items: center; gap: 8px; }
-    .product-price { font-weight: 800; font-size: 0.95rem; color: var(--success); }
+    .product-price { font-weight: 800; font-size: 1rem; color: var(--primary); }
     .product-old-price { font-size: 0.8rem; color: var(--text-muted); text-decoration: line-through; }
-    .product-img-wrap { width: 92px; height: 92px; border-radius: 10px; overflow: hidden; flex-shrink: 0; position: relative; background: #F1F5F9; }
+    .product-img-wrap { width: 108px; height: 108px; border-radius: 12px; overflow: hidden; flex-shrink: 0; position: relative; background: #F1F5F9; }
     .product-img-wrap img { width: 100%; height: 100%; object-fit: cover; }
     .promo-tag { position: absolute; top: 6px; left: 6px; background: var(--success); color: #fff; font-size: 0.65rem; font-weight: 800; padding: 2px 6px; border-radius: 5px; text-transform: uppercase; }
+    .product-add-hint { width: 26px; height: 26px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: #fff; background: var(--primary); margin-left: auto; flex-shrink: 0; font-size:1.25rem; line-height:1; }
     .floating-cart-bar { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); width: calc(100% - 32px); max-width: 780px; background: var(--primary); color: #fff; padding: 14px 20px; border-radius: 14px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 12px 30px rgba(234,29,44,0.35); z-index: 40; cursor: pointer; }
     .cart-badge-count { background: rgba(0,0,0,0.22); padding: 4px 10px; border-radius: 8px; font-weight: 800; font-size: 0.85rem; }
+    .pdv-switcher { display: inline-flex; padding: 4px; gap: 4px; border-radius: 12px; background: #E9EEF5; margin-bottom: 16px; }
+    .pdv-switcher button { padding: 9px 14px; border-radius: 9px; color: #526176; font-size: 0.84rem; font-weight: 750; }
+    .pdv-switcher button.active { background: #fff; color: #0F172A; box-shadow: 0 2px 8px rgba(15,23,42,0.09); }
+    .logistics-layout { display: grid; grid-template-columns: minmax(0,1.5fr) minmax(280px,0.8fr); gap: 18px; align-items: start; }
+    .dispatch-order { border: 1px solid #DCE4EE; border-left: 4px solid #128C7E; border-radius: 14px; padding: 15px; background: #fff; display: grid; gap: 12px; }
+    .dispatch-order + .dispatch-order { margin-top: 10px; }
+    .dispatch-order-top { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+    .dispatch-address { color:#334155; font-size:0.86rem; line-height:1.5; }
+    .rider-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:11px 0; border-bottom:1px solid var(--border); }
+    .rider-row:last-child { border-bottom:0; }
+    .logistics-empty { padding:28px 18px; border:1px dashed #CBD5E1; border-radius:14px; text-align:center; color:var(--text-muted); background:#F8FAFC; }
 
     .modal-backdrop { position: fixed; inset: 0; background: rgba(15,23,42,0.6); backdrop-filter: blur(3px); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 16px; }
     .modal-box { background: var(--surface); border-radius: 16px; width: 100%; max-width: 540px; max-height: 92vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: var(--shadow-lg); }
@@ -210,6 +223,7 @@
     .status-tag { font-size: 0.72rem; font-weight: 800; padding: 4px 10px; border-radius: 999px; text-transform: uppercase; }
     .status-novo { background: #FEE2E2; color: #DC2626; }
     .status-preparo { background: #FEF3C7; color: #D97706; }
+    .status-pronto { background: #CCFBF1; color: #0F766E; }
     .status-entrega { background: #DBEAFE; color: #2563EB; }
     .status-concluido { background: #DCFCE7; color: #16A34A; }
     .order-type-strip { background: #F8FAFC; padding: 7px 10px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; color: #334155; }
@@ -246,6 +260,17 @@
       .admin-main { margin-left: 0; padding: 18px; }
       .kpi-grid { grid-template-columns: repeat(2, 1fr); }
       .pdv-layout, .wa-hub-grid { grid-template-columns: 1fr; }
+      .logistics-layout { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 600px) {
+      .products-grid { grid-template-columns: 1fr; gap: 10px; }
+      .product-card { gap: 10px; padding: 10px; border-radius: 14px; }
+      .product-img-wrap { width: 88px; height: 88px; }
+      .menu-content { padding: 14px 14px 28px; }
+      .store-header-card, .sticky-nav { padding-left: 14px; padding-right: 14px; }
+      .pdv-switcher { width: 100%; }
+      .pdv-switcher button { flex: 1; }
+      .dispatch-order { padding: 12px; }
     }
   </style>
 </head>
@@ -525,6 +550,7 @@
               <button type="button" class="filter-pill active" data-filter="all" onclick="setOrderFilter('all', this)">Todos</button>
               <button type="button" class="filter-pill" data-filter="novo" onclick="setOrderFilter('novo', this)">Novos</button>
               <button type="button" class="filter-pill" data-filter="preparo" onclick="setOrderFilter('preparo', this)">Em Preparo</button>
+              <button type="button" class="filter-pill" data-filter="pronto" onclick="setOrderFilter('pronto', this)">Prontos</button>
               <button type="button" class="filter-pill" data-filter="entrega" onclick="setOrderFilter('entrega', this)">Em Entrega</button>
               <button type="button" class="filter-pill" data-filter="concluido" onclick="setOrderFilter('concluido', this)">Concluídos</button>
             </div>
@@ -534,6 +560,11 @@
       </section>
 
       <section id="tab-pdv" class="hidden">
+        <div class="pdv-switcher" role="tablist" aria-label="Área do PDV">
+          <button type="button" id="pdv-tab-cashier" class="active" role="tab" aria-selected="true" onclick="switchPdvView('cashier')">Caixa</button>
+          <button type="button" id="pdv-tab-logistics" role="tab" aria-selected="false" onclick="switchPdvView('logistics')">Logística <span id="pdv-ready-count" style="display:inline-flex;min-width:21px;height:21px;align-items:center;justify-content:center;margin-left:5px;border-radius:999px;background:#128C7E;color:#fff;font-size:0.72rem;">0</span></button>
+        </div>
+        <div id="pdv-view-cashier">
         <div class="pdv-layout">
           <div class="panel-card">
             <h3 style="font-size:1.05rem;font-weight:800;margin-bottom:12px;">Catálogo Rápido (Balcão / Telefone)</h3>
@@ -584,6 +615,28 @@
               <button type="button" class="btn btn-outline" onclick="submitPdvOrder(false, true)"><i data-lucide="printer" style="width:15px;height:15px;"></i> Registrar + Imprimir</button>
             </div>
             <button type="button" class="btn btn-whatsapp" style="width:100%;" onclick="submitPdvOrder(true, true)"><i data-lucide="send" style="width:15px;height:15px;"></i> Registrar + WhatsApp + Imprimir</button>
+          </div>
+        </div>
+        </div>
+        <div id="pdv-view-logistics" class="hidden">
+          <div class="logistics-layout">
+            <div class="panel-card">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
+                <div><h3 style="font-size:1.08rem;font-weight:800;">Fila de saída</h3><p style="font-size:0.82rem;color:var(--text-muted);margin-top:3px;">Pedidos prontos para receber um motoboy e uma rota.</p></div>
+                <span class="status-tag status-pronto"><i data-lucide="bike" style="width:13px;height:13px;"></i> PRONTOS</span>
+              </div>
+              <div id="pdv-ready-orders"></div>
+            </div>
+            <aside class="panel-card">
+              <h3 style="font-size:1.02rem;font-weight:800;">Motoboys</h3>
+              <p style="font-size:0.8rem;color:var(--text-muted);margin:4px 0 14px;">Cadastre o nome e WhatsApp para despachar pedidos.</p>
+              <form onsubmit="addMotoboy(event)" style="display:grid;gap:9px;padding-bottom:14px;border-bottom:1px solid var(--border);">
+                <div><label class="form-label" for="motoboy-name">Nome</label><input id="motoboy-name" class="form-input" required placeholder="Ex.: Rafael" /></div>
+                <div><label class="form-label" for="motoboy-phone">WhatsApp com DDD</label><input id="motoboy-phone" class="form-input" inputmode="tel" required placeholder="(41) 99999-9999" /></div>
+                <button type="submit" class="btn btn-dark"><i data-lucide="user-round-plus" style="width:16px;height:16px;"></i> Adicionar motoboy</button>
+              </form>
+              <div id="pdv-motoboy-list" style="margin-top:8px;"></div>
+            </aside>
           </div>
         </div>
       </section>
@@ -1357,6 +1410,7 @@
           initialLoad = false;
           currentOrders = list;
           renderAdminOrders();
+          renderPdvLogistics();
         });
       }
     }
@@ -1511,10 +1565,11 @@
           return;
         }
 
-        const stepOrder = ["novo", "preparo", "entrega", "concluido"];
+        const stepOrder = ["novo", "preparo", "pronto", "entrega", "concluido"];
         const stepLabels = [
           { key: "novo", label: "Recebido" },
           { key: "preparo", label: "Preparando" },
+          { key: "pronto", label: "Pronto" },
           { key: "entrega", label: "Em Entrega" },
           { key: "concluido", label: "Concluído" }
         ];
@@ -1585,12 +1640,13 @@
         if (!items.length) return;
         html += `<div class="menu-section"><h2 class="menu-section-title">${cat.name}</h2><div class="products-grid">` +
           items.map(p => `
-            <div class="product-card" onclick="openProductModal('${p.id}', 'customer')">
+            <div class="product-card" role="button" tabindex="0" aria-label="Ver ${p.name}, ${formatBRL(p.price)}" onclick="openProductModal('${p.id}', 'customer')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openProductModal('${p.id}','customer')}">
               <div class="product-info">
                 <div><div class="product-name">${p.name}</div><div class="product-desc">${p.desc || ""}</div></div>
                 <div class="product-price-row">
                   <span class="product-price">${formatBRL(p.price)}</span>
                   ${p.oldPrice ? `<span class="product-old-price">${formatBRL(p.oldPrice)}</span>` : ""}
+                  <span class="product-add-hint" aria-hidden="true">+</span>
                 </div>
               </div>
               <div class="product-img-wrap">
@@ -1827,7 +1883,7 @@
       document.getElementById("admin-store-toggle").checked = currentStore.isOpen;
       updateStoreStatusText();
       loadWaSettingsIntoUI(); loadStoreSettingsIntoUI();
-      renderAdminOrders(); renderPdvCatalog(); renderPdvCart();
+      renderAdminOrders(); renderPdvCatalog(); renderPdvCart(); renderPdvLogistics();
       renderAdminProducts(); renderAdminCategories(); renderAdminCoupons();
     }
 
@@ -1841,7 +1897,97 @@
       document.querySelectorAll(".nav-item").forEach(btn => btn.classList.toggle("active", btn.dataset.tab === tabName));
       ["orders", "pdv", "products", "categories", "coupons", "whatsapp", "settings", "saas"].forEach(t => document.getElementById(`tab-${t}`).classList.toggle("hidden", t !== tabName));
       if (tabName === "saas" && isMasterUser()) loadSaasTenantsList();
+      if (tabName === "pdv") renderPdvLogistics();
       if (window.lucide) lucide.createIcons();
+    }
+
+    function switchPdvView(view) {
+      const logistics = view === "logistics";
+      document.getElementById("pdv-view-cashier").classList.toggle("hidden", logistics);
+      document.getElementById("pdv-view-logistics").classList.toggle("hidden", !logistics);
+      document.getElementById("pdv-tab-cashier").classList.toggle("active", !logistics);
+      document.getElementById("pdv-tab-logistics").classList.toggle("active", logistics);
+      document.getElementById("pdv-tab-cashier").setAttribute("aria-selected", String(!logistics));
+      document.getElementById("pdv-tab-logistics").setAttribute("aria-selected", String(logistics));
+      renderPdvLogistics();
+    }
+
+    function normalizeWhatsAppPhone(value) {
+      let digits = String(value || "").replace(/\D/g, "");
+      if (digits.length === 10 || digits.length === 11) digits = `55${digits}`;
+      return digits;
+    }
+
+    async function addMotoboy(event) {
+      event.preventDefault();
+      const name = document.getElementById("motoboy-name").value.trim();
+      const phone = normalizeWhatsAppPhone(document.getElementById("motoboy-phone").value);
+      if (phone.length < 12 || phone.length > 13) { showToast("Informe um WhatsApp válido com DDD.", "warning"); return; }
+      const riders = Array.isArray(currentStore.motoboys) ? currentStore.motoboys : [];
+      if (riders.some(r => normalizeWhatsAppPhone(r.phone) === phone)) { showToast("Esse WhatsApp já está cadastrado.", "warning"); return; }
+      currentStore.motoboys = [...riders, { id: `rider-${Date.now()}`, name, phone }];
+      await persistStoreData();
+      event.target.reset();
+      renderPdvLogistics();
+      showToast(`${name} adicionado à equipe de entrega.`, "success");
+    }
+
+    async function removeMotoboy(id) {
+      currentStore.motoboys = (currentStore.motoboys || []).filter(r => r.id !== id);
+      await persistStoreData();
+      renderPdvLogistics();
+      showToast("Motoboy removido.", "success");
+    }
+
+    function renderPdvLogistics() {
+      const queue = document.getElementById("pdv-ready-orders");
+      const riderList = document.getElementById("pdv-motoboy-list");
+      if (!queue || !riderList) return;
+      const ready = currentOrders.filter(o => o.status === "pronto" && o.type === "delivery");
+      const riders = Array.isArray(currentStore.motoboys) ? currentStore.motoboys : [];
+      const count = document.getElementById("pdv-ready-count");
+      if (count) count.textContent = ready.length;
+      queue.innerHTML = ready.length ? ready.map(o => {
+        const key = o.firestoreId || o.id;
+        const items = (o.items || []).map(i => `${i.qty}× ${i.name}`).join(", ");
+        return `<article class="dispatch-order">
+          <div class="dispatch-order-top"><strong>${o.id} · ${o.customerName || "Cliente"}</strong><span class="status-tag status-pronto">PRONTO</span></div>
+          <div class="dispatch-address"><strong>Destino</strong><br>${o.address || "Endereço não informado"}</div>
+          <div style="font-size:.82rem;color:var(--text-muted);"><strong>Itens:</strong> ${items || "—"}</div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <select id="courier-${key}" class="form-select" aria-label="Motoboy do pedido ${o.id}" style="flex:1;min-width:180px;" onchange="saveOrderCourier('${key}', this.value)">
+              <option value="">Escolha um motoboy…</option>${riders.map(r => `<option value="${r.id}" ${o.motoboyId === r.id ? "selected" : ""}>${r.name}</option>`).join("")}
+            </select>
+            <button type="button" class="btn btn-whatsapp btn-sm" onclick="sendRiderRoute('${key}')" ${o.motoboyId ? "" : "disabled"}><i data-lucide="send" style="width:14px;height:14px;"></i> Enviar rota</button>
+            ${o.motoboyId ? `<button type="button" class="btn btn-outline btn-sm" onclick="advanceOrderStatus('${key}','entrega')">Marcar em entrega</button>` : ""}
+          </div>
+        </article>`;
+      }).join("") : `<div class="logistics-empty"><div style="font-size:1.5rem;margin-bottom:8px;">🛵</div><strong>Nenhum pedido aguardando saída</strong><p style="margin-top:4px;">Quando um pedido de entrega estiver pronto, ele aparecerá nesta fila.</p></div>`;
+      riderList.innerHTML = riders.length ? riders.map(r => `<div class="rider-row"><div><strong>${r.name}</strong><div style="font-size:.78rem;color:var(--text-muted);">+${r.phone}</div></div><div style="display:flex;gap:6px;"><a class="btn btn-outline btn-sm" href="https://wa.me/${normalizeWhatsAppPhone(r.phone)}" target="_blank" rel="noopener noreferrer" aria-label="Abrir WhatsApp de ${r.name}">WhatsApp</a><button type="button" class="btn btn-outline btn-sm" onclick="removeMotoboy('${r.id}')" aria-label="Remover ${r.name}">×</button></div></div>`).join("") : `<p style="padding:18px 0;text-align:center;font-size:.82rem;color:var(--text-muted);">Cadastre o primeiro motoboy para começar.</p>`;
+      if (window.lucide) lucide.createIcons();
+    }
+
+    async function saveOrderCourier(key, riderId) {
+      const order = currentOrders.find(o => (o.firestoreId || o.id) === key);
+      if (!order) return;
+      const rider = (currentStore.motoboys || []).find(r => r.id === riderId);
+      const fields = rider ? { motoboyId: rider.id, motoboyName: rider.name, motoboyPhone: rider.phone } : { motoboyId: "", motoboyName: "", motoboyPhone: "" };
+      Object.assign(order, fields);
+      if (order.firestoreId) await updateDoc(doc(db, "stores", currentSlug, "orders", order.firestoreId), fields);
+      renderPdvLogistics();
+      showToast(rider ? `${rider.name} atribuído ao pedido ${order.id}.` : "Motoboy removido do pedido.", "success");
+    }
+
+    async function sendRiderRoute(key) {
+      const order = currentOrders.find(o => (o.firestoreId || o.id) === key);
+      if (!order) return;
+      const rider = (currentStore.motoboys || []).find(r => r.id === order.motoboyId) || (order.motoboyPhone ? { name: order.motoboyName, phone: order.motoboyPhone } : null);
+      if (!rider) { showToast("Escolha um motoboy antes de enviar a rota.", "warning"); return; }
+      if (!order.address || order.address === "Retirada no Balcão") { showToast("Este pedido não tem endereço de entrega.", "warning"); return; }
+      const route = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(currentStore.address || "")}&destination=${encodeURIComponent(order.address)}&travelmode=driving`;
+      const items = (order.items || []).map(i => `${i.qty}× ${i.name}`).join(", ");
+      const message = `Olá ${rider.name}! O pedido ${order.id} está pronto para entrega.\n\nCliente: ${order.customerName}\nEndereço: ${order.address}\nPedido: ${items}\n\nRota: ${route}`;
+      window.open(`https://wa.me/${normalizeWhatsAppPhone(rider.phone)}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
     }
 
     const getPublicStoreUrl = (slug = currentSlug, vitrine = false) => {
@@ -1879,13 +2025,15 @@
       document.getElementById("sidebar-new-orders-badge").textContent = currentOrders.filter(o => o.status === "novo").length;
 
       const filtered = currentOrderFilter === "all" ? currentOrders : currentOrders.filter(o => o.status === currentOrderFilter);
-      const labels = { novo: "NOVO PEDIDO", preparo: "EM PREPARO", entrega: "EM ENTREGA", concluido: "CONCLUÍDO" };
+      const labels = { novo: "NOVO PEDIDO", preparo: "EM PREPARO", pronto: "PRONTO P/ SAIR", entrega: "EM ENTREGA", concluido: "CONCLUÍDO" };
 
       document.getElementById("admin-orders-grid").innerHTML = filtered.map(o => {
         const key = o.firestoreId || o.id;
         let btn = "";
         if (o.status === "novo") btn = `<button type="button" class="btn btn-whatsapp btn-sm" onclick="advanceOrderStatus('${key}', 'preparo')">Aceitar & Avisar</button>`;
-        else if (o.status === "preparo") btn = `<button type="button" class="btn btn-primary btn-sm" style="background:#2563EB;" onclick="advanceOrderStatus('${key}', 'entrega')">Saiu p/ Entrega</button>`;
+        else if (o.status === "preparo") btn = `<button type="button" class="btn btn-primary btn-sm" style="background:#128C7E;" onclick="advanceOrderStatus('${key}', 'pronto')">Marcar pronto</button>`;
+        else if (o.status === "pronto" && o.type === "delivery") btn = `<button type="button" class="btn btn-outline btn-sm" onclick="switchAdminTab('pdv'); switchPdvView('logistics')">Designar motoboy</button>`;
+        else if (o.status === "pronto") btn = `<button type="button" class="btn btn-whatsapp btn-sm" onclick="advanceOrderStatus('${key}', 'concluido')">Concluir retirada</button>`;
         else if (o.status === "entrega") btn = `<button type="button" class="btn btn-whatsapp btn-sm" onclick="advanceOrderStatus('${key}', 'concluido')">Concluir</button>`;
 
         return `
@@ -1919,8 +2067,10 @@
       const o = currentOrders.find(x => (x.firestoreId || x.id) === key);
       if (!o) return;
       if (o.firestoreId) await updateDoc(doc(db, "stores", currentSlug, "orders", o.firestoreId), { status: newStatus });
-      const tpl = newStatus === "preparo" ? currentStore.whatsapp?.tplPreparo : newStatus === "entrega" ? currentStore.whatsapp?.tplEntrega : currentStore.whatsapp?.tplConcluido;
+      const tplByStatus = { preparo: currentStore.whatsapp?.tplPreparo, entrega: currentStore.whatsapp?.tplEntrega, concluido: currentStore.whatsapp?.tplConcluido };
+      const tpl = tplByStatus[newStatus];
       if (tpl && o.customerPhone) await dispatchWhatsAppMessage(o.customerPhone, formatTemplateMessage(tpl, o), false);
+      if (newStatus === "pronto") showToast(`Pedido ${o.id} pronto para expedição.`, "success");
     }
 
     function openOrderDetailModal(key) {
@@ -2502,6 +2652,7 @@
       openCartDrawer, closeCartDrawer, applyCartCoupon, setCartDeliveryMode, toggleCustPaymentInfo, removeCustomerCartItem, finalizeCustomerOrder,
       handleAdminLogin, fillDemoLogin, handleAdminLogout, switchAdminTab, openStorePublicLink, copyCurrentStoreUrl, toggleStoreOpen, setOrderFilter,
       advanceOrderStatus, openOrderDetailModal, closeOrderDetailModal, printOrderReceipt, renderPdvCatalog, selectPdvCategory, handlePdvItemClick, removePdvCartItem, clearPdvCart,
+      switchPdvView, addMotoboy, removeMotoboy, renderPdvLogistics, saveOrderCourier, sendRiderRoute,
       autoFillPdvCustomer, togglePdvDeliveryFields, togglePdvChangeField, renderPdvCart, submitPdvOrder, openProductEditor, closeProductEditor,
       handleProductImageUpload, addEditorOptionGroup, renderEditorGroups, saveProductFromEditor, toggleProductAvail, deleteProduct, addCategory,
       deleteCategory, addCoupon, deleteCoupon, onWaProviderChange, saveWaSettings, generateCloudPairingQR, copyTag, clearSimChat, sendSimMessage,
