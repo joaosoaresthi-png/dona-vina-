@@ -39,13 +39,33 @@ async function authorize(req, res, next) {
   } catch (e) { res.status(e.status || 401).json({ error: e.status ? e.message : 'Sessão inválida ou expirada.' }); }
 }
 function phoneDigits(value) { let d = String(value || '').replace(/\D/g, ''); if (d.length === 10 || d.length === 11) d = '55' + d; return d.startsWith('55') && d.length >= 12 && d.length <= 13 ? d : null; }
-function botReply(text, w = {}) {
+function botReply(text, store = {}, slug = '') {
+  const w = store.whatsapp || {};
   if (w.botEnabled === false) return null;
-  const t = String(text || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  if (/\b(oi|ola|menu|cardapio)\b/.test(t)) return w.botWelcome || 'Olá! Como posso ajudar?';
-  if (/\b(pix|pagamento)\b/.test(t)) return w.botPix || 'Fale com a loja para consultar o pagamento.';
-  if (/\b(horario|endereco)\b/.test(t)) return w.botHours || 'Consulte horário e endereço no cardápio.';
-  return null;
+  const t = String(text || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+  const menuUrl = `https://dona-vina.vercel.app/?loja=${encodeURIComponent(slug)}`;
+  const name = store.name || 'nossa loja';
+  const menu = () => {
+    const products = (store.products || []).filter((p) => p && p.available !== false).slice(0, 12);
+    const lines = products.map((p) => `• ${p.name} — ${Number(p.price || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`);
+    return `🍽️ Cardápio de ${name}\n\n${lines.length ? lines.join('\n') + '\n\n' : ''}Veja todos os itens e faça seu pedido pelo link:\n${menuUrl}`;
+  };
+  const greeting = () => `${w.botWelcome || `Olá! 😊 Bem-vindo(a) à ${name}.`}\n\nComo posso ajudar? Responda com uma opção:\n1️⃣ Ver cardápio / fazer pedido\n2️⃣ Horário e endereço\n3️⃣ Pagamento / Pix\n4️⃣ Falar com a equipe`;
+  if (/^(1|1️⃣)$/.test(t) || /\b(cardapio|menu|produtos|fazer pedido|pedir|pedido)\b/.test(t)) return menu();
+  if (/^(2|2️⃣)$/.test(t) || /\b(horario|funcionamento|endereco|localizacao|onde fica)\b/.test(t)) {
+    const hours = store.hours || w.botHours || 'Consulte o horário diretamente com a equipe.';
+    const address = store.address ? `\n📍 Endereço: ${store.address}` : '';
+    return `🕒 Funcionamento: ${hours}${address}`;
+  }
+  if (/^(3|3️⃣)$/.test(t) || /\b(pix|pagamento|pagar)\b/.test(t)) {
+    if (store.pixKey) return `💳 Pix: ${store.pixKey}\n\nSe precisar, responda 4 para falar com a equipe.`;
+    return w.botPix || 'A chave Pix ainda não foi cadastrada. Responda 4 para falar com a equipe.';
+  }
+  if (/^(4|4️⃣)$/.test(t) || /\b(atendente|equipe|pessoa|humano|falar com alguem)\b/.test(t)) {
+    return `👋 Certo! A equipe de ${name} pode continuar esta conversa por aqui. Escreva sua dúvida ou o que deseja pedir.`;
+  }
+  if (/\b(oi|ola|bom dia|boa tarde|boa noite|ajuda|inicio|comecar)\b/.test(t) || !t) return greeting();
+  return 'Não entendi essa opção. 😊\n\nResponda 1 para ver o cardápio, 2 para horário/endereço, 3 para Pix ou 4 para falar com a equipe.';
 }
 async function incoming(slug, msg) {
   const id = msg.key?.id, jid = msg.key?.remoteJid;
@@ -53,7 +73,7 @@ async function incoming(slug, msg) {
   seen.add(id); if (seen.size > 2000) seen.delete(seen.values().next().value);
   const m = msg.message || {}; const text = m.conversation || m.extendedTextMessage?.text || m.imageMessage?.caption || m.videoMessage?.caption || '';
   if (!text.trim()) return;
-  try { const snap = await db.collection('stores').doc(slug).get(); const reply = botReply(text, snap.data()?.whatsapp || {}); if (reply) await sessionFor(slug).socket?.sendMessage(jid, { text: reply }); }
+  try { const snap = await db.collection('stores').doc(slug).get(); const store = snap.data() || {}; const reply = botReply(text, store, slug); if (reply) await sessionFor(slug).socket?.sendMessage(jid, { text: reply }); }
   catch (e) { logger.error({ err: e, slug }, 'Falha ao responder'); }
 }
 async function start(slug) {
