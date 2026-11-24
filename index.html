@@ -2379,7 +2379,8 @@
           });
           const data = await resp.json().catch(() => ({}));
           if (!resp.ok) throw new Error(data.error || "Falha ao enviar mensagem.");
-          if (!silent) showToast(`Mensagem enviada para ${phone}!`, "success");
+          if (data.deliveryConfirmed === false) throw new Error(data.error || "O WhatsApp não confirmou a entrega da mensagem.");
+          if (!silent) showToast(`Mensagem entregue para ${phone}!`, "success");
         } catch (e) { if (!silent) showToast(e.message, "error"); }
         return;
       }

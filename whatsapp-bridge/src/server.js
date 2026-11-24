@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { randomUUID } from 'node:crypto';
 import express from 'express';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
@@ -24,7 +25,8 @@ app.use(express.json({ limit: '100kb' }));
 app.use(rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: true, legacyHeaders: false }));
 
 function slugOf(value) { const slug = String(value || '').toLowerCase(); if (!/^[a-z0-9](?:[a-z0-9-]{0,58}[a-z0-9])?$/.test(slug)) { const e = new Error('Slug inválido.'); e.status = 400; throw e; } return slug; }
-function sessionFor(slug) { if (!sessions.has(slug)) sessions.set(slug, { state: 'disconnected', qr: null, phone: null, error: null, socket: null, starting: null, timer: null, generation: 0 }); return sessions.get(slug); }
+function sessionFor(slug) { if (!sessions.has(slug)) sessions.set(slug, { state: 'disconnected', qr: null, phone: null, error: null, socket: null, starting: null, timer: null, generation: 0, pendingMessages: new Map() }); return sessions.get(slug); }
+function failPending(s, error) { for (const pending of s.pendingMessages.values()) { clearTimeout(pending.timer); pending.reject(error); } s.pendingMessages.clear(); }
 function stateOf(slug) { const s = sessionFor(slug); return { store: slug, state: s.state, qr: s.qr, phone: s.phone, error: s.error }; }
 async function authorize(req, res, next) {
   try {
@@ -84,18 +86,43 @@ async function start(slug) {
     s.state = 'connecting'; s.qr = null; s.error = null;
     const sock = makeWASocket({ auth: state, logger, printQRInTerminal: false, browser: Browsers.macOS('Desktop'), markOnlineOnConnect: false, syncFullHistory: false }); s.socket = sock;
     sock.ev.on('creds.update', saveCreds);
+    sock.ev.on('messages.update', (updates) => {
+      for (const update of updates) {
+        const id = update.key?.id, pending = id && s.pendingMessages.get(id);
+        if (!pending) continue;
+        const status = update.update?.status;
+        if ([3, 4, 5].includes(status)) { clearTimeout(pending.timer); s.pendingMessages.delete(id); pending.resolve(); }
+        else if (status === 0) { clearTimeout(pending.timer); s.pendingMessages.delete(id); pending.reject(new Error('O WhatsApp recusou a mensagem. Confira se o número do motoboy está correto e se a sessão segue conectada.')); }
+      }
+    });
     sock.ev.on('messages.upsert', ({ messages, type }) => { if (type === 'notify') messages.forEach((m) => void incoming(slug, m)); });
     sock.ev.on('connection.update', (u) => {
       if (s.generation !== generation) return;
       if (u.qr) { s.qr = u.qr; s.state = 'qr'; }
       if (u.connection === 'open') { s.state = 'connected'; s.qr = null; s.error = null; s.phone = sock.user?.id?.split(':')[0] || null; }
-      if (u.connection === 'close') { const loggedOut = u.lastDisconnect?.error?.output?.statusCode === DisconnectReason.loggedOut; s.state = loggedOut ? 'logged_out' : 'disconnected'; s.socket = null; s.qr = null; s.phone = null; s.error = loggedOut ? 'WhatsApp desconectado; gere outro QR.' : 'Conexão caiu; tentando reconectar.'; if (!loggedOut) { clearTimeout(s.timer); s.timer = setTimeout(() => void start(slug), 3000); } }
+      if (u.connection === 'close') { const loggedOut = u.lastDisconnect?.error?.output?.statusCode === DisconnectReason.loggedOut; failPending(s, new Error(loggedOut ? 'Sessão WhatsApp removida. Gere e leia um novo QR Code.' : 'Conexão WhatsApp caiu durante o envio.')); s.state = loggedOut ? 'logged_out' : 'disconnected'; s.socket = null; s.qr = null; s.phone = null; s.error = loggedOut ? 'WhatsApp desconectado; gere outro QR.' : 'Conexão caiu; tentando reconectar.'; if (!loggedOut) { clearTimeout(s.timer); s.timer = setTimeout(() => void start(slug), 3000); } }
     });
     return s;
   })().catch((e) => { s.state = 'error'; s.error = e.message; throw e; }).finally(() => { s.starting = null; });
   return s.starting;
 }
-async function send(slug, jid, text) { const s = sessionFor(slug); if (s.state !== 'connected' || !s.socket) { const e = new Error('WhatsApp da loja não está conectado.'); e.status = 503; throw e; } await s.socket.sendMessage(jid, { text }); }
+async function send(slug, jid, text) {
+  const s = sessionFor(slug);
+  if (s.state !== 'connected' || !s.socket) { const e = new Error('WhatsApp da loja não está conectado.'); e.status = 503; throw e; }
+  const messageId = randomUUID();
+  const delivered = new Promise((resolve, reject) => {
+    const timer = setTimeout(() => { s.pendingMessages.delete(messageId); const e = new Error('O WhatsApp aceitou o envio, mas não confirmou a entrega em 20 segundos. Verifique a sessão e se o destinatário já conversou com a loja.'); e.status = 504; reject(e); }, 20_000);
+    s.pendingMessages.set(messageId, { resolve, reject, timer });
+  });
+  try {
+    await s.socket.sendMessage(jid, { text }, { messageId });
+    await delivered;
+  } catch (e) {
+    const pending = s.pendingMessages.get(messageId);
+    if (pending) { clearTimeout(pending.timer); s.pendingMessages.delete(messageId); }
+    throw e;
+  }
+}
 function brl(v) { return Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
 function orderText(tpl, order, store) {
   const items = (order.items || []).map((i) => String(i.qty || 1) + 'x ' + (i.name || 'Item')).join('\n');
