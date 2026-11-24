@@ -20,6 +20,7 @@ const seen = new Set();
 const logger = pino({ level: process.env.LOG_LEVEL || 'warn' });
 const app = express();
 app.disable('x-powered-by');
+app.set('trust proxy', 1);
 app.use(cors({ origin(origin, cb) { if (!origin || origins.has(origin)) return cb(null, true); cb(new Error('Origem não autorizada.')); }, methods: ['GET','POST','OPTIONS'], allowedHeaders: ['Authorization','Content-Type'], maxAge: 600 }));
 app.use(express.json({ limit: '100kb' }));
 app.use(rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: true, legacyHeaders: false }));
