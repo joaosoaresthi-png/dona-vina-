@@ -687,13 +687,7 @@
           </div>
           <div style="display:flex;flex-direction:column;gap:6px;min-width:240px;">
             <label style="font-size:0.75rem;font-weight:700;">Provedor:</label>
-            <select id="wa-provider" class="form-select" style="background:#064E3B;color:#fff;border-color:rgba(255,255,255,0.25);" onchange="onWaProviderChange()">
-              <option value="cloud_demo">⚡ Automático Integrado (Pronto p/ Uso)</option>
-              <option value="railway_bridge">🔌 WhatsApp Web (Serviço Railway)</option>
-              <option value="evolution">☁️ Evolution API (Nuvem)</option>
-              <option value="zapi">☁️ Z-API (Nuvem)</option>
-              <option value="webhook">🔗 Webhook / Make / n8n</option>
-            </select>
+            <div style="display:flex;align-items:center;gap:8px;background:#064E3B;color:#fff;border:1px solid rgba(255,255,255,0.25);border-radius:10px;padding:10px 12px;font-size:0.86rem;font-weight:700;"><span aria-hidden="true">🔌</span> WhatsApp Web pelo Railway</div>
           </div>
         </div>
         <div class="wa-hub-grid">
@@ -703,12 +697,9 @@
                 <h3 style="font-size:1rem;font-weight:800;">Conexão WhatsApp</h3>
                 <span id="wa-connection-status" class="status-tag status-novo">DESCONECTADO</span>
               </div>
-              <div id="wa-cloud-fields" class="hidden" style="margin-bottom:14px;padding:14px;background:#F8FAFC;border-radius:12px;border:1px solid var(--border);">
+              <div style="margin-bottom:14px;padding:14px;background:#F8FAFC;border-radius:12px;border:1px solid var(--border);">
                 <div class="form-group"><label class="form-label">URL do serviço</label><input type="url" id="wa-api-url" class="form-input" placeholder="https://seu-servico.up.railway.app" /></div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                  <div><label class="form-label">Token / API Key</label><input type="password" id="wa-api-token" class="form-input" /></div>
-                  <div><label class="form-label">URL QR Code (Sessão Web)</label><input type="text" id="wa-qr-endpoint" class="form-input" placeholder="https://api.seuprovedor.com/instance/qrcode/loja" /></div>
-                </div>
+                <small style="color:var(--text-muted);">A sessão e o número conectado pertencem a esta loja.</small>
               </div>
               <div id="wa-qr-box" class="qr-box-container">
                 <strong style="font-size:1rem;color:#15803D;">Sessão WhatsApp Pronta!</strong>
@@ -716,7 +707,7 @@
               </div>
               <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;">
                 <button type="button" class="btn btn-primary btn-sm" onclick="saveWaSettings()">Salvar Conexão</button>
-                <button type="button" class="btn btn-outline btn-sm" onclick="generateCloudPairingQR()">Exibir QR Code</button>
+                <button type="button" class="btn btn-outline btn-sm" onclick="connectRailwayWhatsApp()">Exibir QR Code</button>
               </div>
             </div>
             <div class="panel-card">
@@ -743,14 +734,17 @@
           </div>
           <div>
             <div class="panel-card">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-                <h3 style="font-size:1rem;font-weight:800;">Robô de Atendimento</h3>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <div><h3 style="font-size:1rem;font-weight:800;">Robô de Atendimento</h3><small style="color:var(--text-muted);">Configure como ele responde aos clientes.</small></div>
                 <label class="switch"><input type="checkbox" id="bot-enabled-toggle" checked onchange="saveWaSettings()" /><span class="slider"></span></label>
               </div>
-              <div class="form-group"><label class="form-label">Gatilho: "Oi" / "Menu" / "Cardápio"</label><textarea id="bot-msg-welcome" class="form-textarea" rows="2"></textarea></div>
-              <div class="form-group"><label class="form-label">Gatilho: "Pix" / "Pagamento"</label><textarea id="bot-msg-pix" class="form-textarea" rows="2"></textarea></div>
-              <div class="form-group"><label class="form-label">Gatilho: "Horário" / "Endereço"</label><textarea id="bot-msg-hours" class="form-textarea" rows="2"></textarea></div>
-              <button type="button" class="btn btn-dark btn-sm" style="width:100%;" onclick="saveWaSettings()">Salvar Regras do Robô</button>
+              <div class="form-group"><label class="form-label">Boas-vindas e menu</label><textarea id="bot-msg-welcome" class="form-textarea" rows="3" maxlength="1000" placeholder="Olá! Seja bem-vindo à nossa loja."></textarea><small style="color:var(--text-muted);">Responde a saudações e pedidos de cardápio. O robô inclui as opções 1 a 4.</small></div>
+              <div class="form-group"><label class="form-label">Pagamento e Pix</label><textarea id="bot-msg-pix" class="form-textarea" rows="2" maxlength="600" placeholder="Informe como o cliente pode pagar."></textarea><small style="color:var(--text-muted);">Pode usar {pix} para inserir a chave cadastrada na loja.</small></div>
+              <div class="form-group"><label class="form-label">Horário de funcionamento</label><textarea id="bot-msg-hours" class="form-textarea" rows="2" maxlength="500" placeholder="Ex.: todos os dias, das 18h às 23h."></textarea></div>
+              <div class="form-group"><label class="form-label">Endereço da loja</label><textarea id="bot-msg-address" class="form-textarea" rows="2" maxlength="500" placeholder="Rua, número, bairro e cidade."></textarea></div>
+              <div class="form-group"><label class="form-label">Quando pedir atendimento humano</label><textarea id="bot-msg-handoff" class="form-textarea" rows="2" maxlength="500" placeholder="Avise que a equipe continuará a conversa."></textarea></div>
+              <div class="form-group"><label class="form-label">Resposta quando não entender</label><textarea id="bot-msg-fallback" class="form-textarea" rows="2" maxlength="500" placeholder="Oriente o cliente a escolher uma opção do menu."></textarea></div>
+              <button type="button" class="btn btn-dark btn-sm" style="width:100%;" onclick="saveWaSettings()">Salvar configurações do robô</button>
             </div>
             <div class="wa-sim-box">
               <div class="wa-sim-header">
@@ -1098,7 +1092,7 @@
         pickupEta: "25 min",
         deliveryFee: 6.00,
         freeDeliveryAbove: 80.00,
-        pixKey: "12.345.678/0001-99",
+        pixKey: "",
         primaryColor: "#EA1D2C",
         isOpen: true,
         logo: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=300&q=80",
@@ -1124,15 +1118,17 @@
           { id: "cp-1", code: "BEMVINDO10", type: "percent", value: 10, active: true }
         ],
         whatsapp: {
-          provider: "cloud_demo", apiUrl: "", apiToken: "", qrEndpoint: "",
+          provider: "railway_bridge", apiUrl: "https://dona-vina-production.up.railway.app",
           tplConfirmacao: "Olá {cliente}! ✅ Recebemos seu pedido *{pedido}*!\n\n*Itens:* {itens}\n*Total:* {total}\n*Previsão:* {tempo}. Já vamos preparar!",
           tplPreparo: "Olá {cliente}! Seu pedido {pedido} foi ACEITO! 🍔 Já está em preparo. Tempo estimado: {tempo}.",
           tplEntrega: "Boa notícia {cliente}! Seu pedido {pedido} SAIU PARA ENTREGA! 🛵 Endereço: {endereco}.",
           tplConcluido: "Pedido {pedido} CONCLUÍDO! 🎉 Obrigado pela preferência!",
           botEnabled: true,
           botWelcome: "Olá! 👋 Seja bem-vindo! Faça seu pedido pelo nosso cardápio digital:",
-          botPix: "Chave PIX: 12.345.678/0001-99 💳 Envie o comprovante por aqui!",
-          botHours: "Funcionamento: Terça a Domingo das 18:00 às 23:30."
+          botPix: "💳 Nossa chave Pix é {pix}. Envie o comprovante por aqui!",
+          botHours: "Funcionamento: Terça a Domingo das 18:00 às 23:30.",
+          botAddress: "", botHandoff: "Certo! Nossa equipe continuará seu atendimento por aqui. Escreva sua dúvida ou pedido.",
+          botFallback: "Não entendi essa mensagem. Responda 1 para o cardápio, 2 para horário/endereço, 3 para Pix ou 4 para falar com a equipe."
         }
       };
     }
@@ -2247,39 +2243,32 @@
 
     function loadWaSettingsIntoUI() {
       const w = currentStore.whatsapp || {};
-      document.getElementById("wa-provider").value = w.provider || "cloud_demo";
-      document.getElementById("wa-api-url").value = w.apiUrl || "";
-      document.getElementById("wa-api-token").value = w.apiToken || "";
-      document.getElementById("wa-qr-endpoint").value = w.qrEndpoint || "";
+      currentStore.whatsapp = { ...w, provider: "railway_bridge" };
+      document.getElementById("wa-api-url").value = w.apiUrl || "https://dona-vina-production.up.railway.app";
       document.getElementById("tpl-confirmacao").value = w.tplConfirmacao || "";
       document.getElementById("tpl-preparo").value = w.tplPreparo || "";
       document.getElementById("tpl-entrega").value = w.tplEntrega || "";
       document.getElementById("tpl-concluido").value = w.tplConcluido || "";
       document.getElementById("bot-enabled-toggle").checked = w.botEnabled !== false;
       document.getElementById("bot-msg-welcome").value = w.botWelcome || "";
-      document.getElementById("bot-msg-pix").value = w.botPix || "";
+      document.getElementById("bot-msg-pix").value = w.botPix || "💳 Nossa chave Pix é {pix}. Envie o comprovante por aqui!";
       document.getElementById("bot-msg-hours").value = w.botHours || "";
-      onWaProviderChange(false);
-      if (w.provider === "railway_bridge") void refreshWaBridgeStatus();
-    }
-    function onWaProviderChange(save = true) {
-      const provider = document.getElementById("wa-provider").value;
-      document.getElementById("wa-cloud-fields").classList.toggle("hidden", provider === "cloud_demo");
-      const bridge = provider === "railway_bridge";
-      document.getElementById("wa-api-token").closest("div").classList.toggle("hidden", bridge);
-      document.getElementById("wa-qr-endpoint").closest("div").classList.toggle("hidden", bridge);
-      if (save) saveWaSettings();
+      document.getElementById("bot-msg-address").value = w.botAddress || "";
+      document.getElementById("bot-msg-handoff").value = w.botHandoff || "Certo! Nossa equipe continuará seu atendimento por aqui. Escreva sua dúvida ou pedido.";
+      document.getElementById("bot-msg-fallback").value = w.botFallback || "Não entendi essa mensagem. Responda 1 para o cardápio, 2 para horário/endereço, 3 para Pix ou 4 para falar com a equipe.";
+      void refreshWaBridgeStatus();
     }
     async function saveWaSettings() {
       currentStore.whatsapp = {
-        provider: document.getElementById("wa-provider").value, apiUrl: document.getElementById("wa-api-url").value.trim(),
-        apiToken: document.getElementById("wa-provider").value === "railway_bridge" ? "" : document.getElementById("wa-api-token").value.trim(), qrEndpoint: document.getElementById("wa-qr-endpoint").value.trim(),
+        ...currentStore.whatsapp, provider: "railway_bridge", apiUrl: document.getElementById("wa-api-url").value.trim(),
         tplConfirmacao: document.getElementById("tpl-confirmacao").value, tplPreparo: document.getElementById("tpl-preparo").value,
         tplEntrega: document.getElementById("tpl-entrega").value, tplConcluido: document.getElementById("tpl-concluido").value,
         botEnabled: document.getElementById("bot-enabled-toggle").checked, botWelcome: document.getElementById("bot-msg-welcome").value,
-        botPix: document.getElementById("bot-msg-pix").value, botHours: document.getElementById("bot-msg-hours").value
+        botPix: document.getElementById("bot-msg-pix").value, botHours: document.getElementById("bot-msg-hours").value,
+        botAddress: document.getElementById("bot-msg-address").value, botHandoff: document.getElementById("bot-msg-handoff").value,
+        botFallback: document.getElementById("bot-msg-fallback").value
       };
-      await persistStoreData(); showToast("WhatsApp salvo na nuvem!", "success");
+      await persistStoreData(); showToast("Configurações do WhatsApp salvas!", "success");
     }
     function copyTag(tag) { navigator.clipboard?.writeText(tag); showToast(`Tag ${tag} copiada!`, "success"); }
     function updateWaConnectionStatus(state) {
@@ -2301,73 +2290,52 @@
       } catch (e) { /* estado indisponível até o serviço Railway responder */ }
     }
     async function pollWaBridgeStatus(base, token) {
+      let lastState = null;
       for (let i = 0; i < 30; i++) {
         await new Promise(resolve => setTimeout(resolve, 2000));
         try {
           const resp = await fetch(`${base}/api/stores/${encodeURIComponent(currentSlug)}/whatsapp/status`, { headers: { "Authorization": `Bearer ${token}` } });
           const data = await resp.json();
           if (!resp.ok) throw new Error(data.error || "Falha ao consultar conexão.");
+          lastState = data;
           updateWaConnectionStatus(data.state);
           const box = document.getElementById("wa-qr-box");
           if (data.state === "connected") { box.innerHTML = "<strong style='color:#15803D;'>WhatsApp conectado com sucesso.</strong>"; return; }
           if (data.qr) {
             box.innerHTML = '<div id="cloud-qr-target" style="background:#fff;padding:12px;border-radius:12px;"></div><p style="font-size:0.8rem;font-weight:700;color:#15803D;margin-top:8px;">Escaneie em WhatsApp &gt; Aparelhos conectados</p>';
             new QRCode(document.getElementById("cloud-qr-target"), { text: data.qr, width: 190, height: 190 });
-          }
-          if (data.state === "disconnected" || data.state === "logged_out" || data.state === "error") { box.insertAdjacentHTML("beforeend", "<p>Conexão encerrada. Gere um novo QR Code.</p>"); return; }
-        } catch (e) { return; }
-      }
-    }
-    async function generateCloudPairingQR() {
-      if (document.getElementById("wa-provider").value === "railway_bridge") {
-        const base = document.getElementById("wa-api-url").value.trim().replace(/\/+$/, "");
-        const box = document.getElementById("wa-qr-box");
-        if (!base) { showToast("Informe a URL pública do serviço Railway.", "warning"); return; }
-        if (!currentUser) { showToast("Entre na conta da loja para conectar o WhatsApp.", "warning"); return; }
-        box.innerHTML = "<p>Iniciando conexão com o WhatsApp…</p>";
-        try {
-          const token = await currentUser.getIdToken();
-          const resp = await fetch(`${base}/api/stores/${encodeURIComponent(currentSlug)}/whatsapp/connect`, { method: "POST", headers: { "Authorization": `Bearer ${token}` } });
-          const data = await resp.json();
-          if (!resp.ok) throw new Error(data.error || "Não foi possível iniciar a conexão.");
-          if (data.qr) {
-            box.innerHTML = '<div id="cloud-qr-target" style="background:#fff;padding:12px;border-radius:12px;"></div><p style="font-size:0.8rem;font-weight:700;color:#15803D;margin-top:8px;">Escaneie em WhatsApp &gt; Aparelhos conectados</p>';
-            new QRCode(document.getElementById("cloud-qr-target"), { text: data.qr, width: 190, height: 190 });
-          } else {
-            box.innerHTML = `<p>${data.state === "connected" ? "WhatsApp conectado." : "Aguardando QR Code do WhatsApp…"}</p>`;
-          }
-          updateWaConnectionStatus(data.state);
-          await pollWaBridgeStatus(base, token);
-        } catch (e) { box.textContent = e.message; box.style.color = "#DC2626"; showToast(e.message, "error"); }
-        return;
-      }
-      const qrEndpoint = (document.getElementById("wa-qr-endpoint").value || currentStore.whatsapp?.qrEndpoint || "").trim();
-      const box = document.getElementById("wa-qr-box");
-      if (qrEndpoint) {
-        try {
-          const headers = {};
-          const token = (document.getElementById("wa-api-token").value || currentStore.whatsapp?.apiToken || "").trim();
-          if (token) { headers["apikey"] = token; headers["Authorization"] = `Bearer ${token}`; }
-          const resp = await fetch(qrEndpoint, { headers });
-          const data = await resp.json();
-          const imgSrc = data.base64 || data.qrcode?.base64 || data.qrcode || data.qr || "";
-          if (imgSrc) {
-            const src = imgSrc.startsWith("data:image") ? imgSrc : `data:image/png;base64,${imgSrc}`;
-            box.innerHTML = `<img src="${src}" alt="QR Pareamento WhatsApp" style="width:190px;height:190px;border-radius:12px;background:#fff;padding:8px;" /><p style="font-size:0.8rem;font-weight:700;color:#15803D;margin-top:8px;">Escaneie com o WhatsApp da loja</p>`;
             return;
           }
-        } catch (e) {}
+          if (data.state === "logged_out" || data.state === "error") { box.innerHTML = `<p>${data.error || "Sessão encerrada. Gere um novo QR Code."}</p>`; return; }
+        } catch (e) { document.getElementById("wa-qr-box").innerHTML = `<p>${e.message}</p>`; return; }
       }
-      const cleanPhone = String(currentStore.phone || "").replace(/\D/g, "");
-      const waLink = `https://wa.me/${cleanPhone}?text=${encodeURIComponent("Olá! Quero falar com " + currentStore.name)}`;
-      box.innerHTML = `<div id="cloud-qr-target" style="background:#fff;padding:12px;border-radius:12px;"></div><p style="font-size:0.8rem;font-weight:700;color:#15803D;margin-top:8px;">QR Code Direto (${currentStore.name})</p>`;
-      new QRCode(document.getElementById("cloud-qr-target"), { text: waLink, width: 190, height: 190 });
+      const box = document.getElementById("wa-qr-box");
+      box.innerHTML = `<p>${lastState?.error || "O WhatsApp não forneceu um QR Code em 60 segundos. Tente novamente e confira os logs do Railway."}</p>`;
+    }
+    async function connectRailwayWhatsApp() {
+      const base = document.getElementById("wa-api-url").value.trim().replace(/\/+$/, "");
+      const box = document.getElementById("wa-qr-box");
+      if (!base) { showToast("Informe a URL pública do serviço Railway.", "warning"); return; }
+      if (!currentUser) { showToast("Entre na conta da loja para conectar o WhatsApp.", "warning"); return; }
+      box.innerHTML = "<p>Iniciando conexão com o WhatsApp…</p>";
+      try {
+        const token = await currentUser.getIdToken();
+        const resp = await fetch(`${base}/api/stores/${encodeURIComponent(currentSlug)}/whatsapp/connect`, { method: "POST", headers: { "Authorization": `Bearer ${token}` } });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || "Não foi possível iniciar a conexão.");
+        if (data.qr) {
+          box.innerHTML = '<div id="cloud-qr-target" style="background:#fff;padding:12px;border-radius:12px;"></div><p style="font-size:0.8rem;font-weight:700;color:#15803D;margin-top:8px;">Escaneie em WhatsApp &gt; Aparelhos conectados</p>';
+          new QRCode(document.getElementById("cloud-qr-target"), { text: data.qr, width: 190, height: 190 });
+        } else box.innerHTML = `<p>${data.state === "connected" ? "WhatsApp conectado." : "Aguardando QR Code do WhatsApp…"}</p>`;
+        updateWaConnectionStatus(data.state);
+        await pollWaBridgeStatus(base, token);
+      } catch (e) { box.textContent = e.message; box.style.color = "#DC2626"; showToast(e.message, "error"); }
     }
     async function dispatchWhatsAppMessage(phone, message, silent = false) {
       let digits = String(phone).replace(/\D/g, "");
       if (digits.length === 10 || digits.length === 11) digits = "55" + digits;
       const w = currentStore.whatsapp || {};
-      if (w.provider === "railway_bridge") {
+      {
         try {
           if (!currentUser) throw new Error("Sua sessão expirou. Entre novamente.");
           const base = String(w.apiUrl || "").trim().replace(/\/+$/, "");
@@ -2384,28 +2352,28 @@
         } catch (e) { if (!silent) showToast(e.message, "error"); }
         return;
       }
-      if (w.provider !== "cloud_demo" && w.apiUrl) {
-        try {
-          const headers = { "Content-Type": "application/json" };
-          if (w.apiToken) { headers["apikey"] = w.apiToken; headers["Authorization"] = `Bearer ${w.apiToken}`; }
-          await fetch(w.apiUrl, { method: "POST", headers, body: JSON.stringify({ phone: digits, number: digits, text: message, message }) });
-        } catch (e) {}
-      }
-      if (!silent) showToast("Configure um provedor de WhatsApp primeiro.", "warning");
     }
-    function clearSimChat() { document.getElementById("wa-sim-messages").innerHTML = ""; }
+    function clearSimChat() { document.getElementById("wa-sim-messages").replaceChildren(); }
     function sendSimMessage() {
       const inp = document.getElementById("wa-sim-input"), text = inp.value.trim();
       if (!text) return; inp.value = "";
       const box = document.getElementById("wa-sim-messages");
-      box.innerHTML += `<div class="wa-msg user">${text}</div>`;
-      const low = text.toLowerCase(), w = currentStore.whatsapp || {};
-      let reply = 'Digite "Menu", "Pix" ou "Horário".';
-      if (w.botEnabled === false) reply = "(Robô desativado)";
-      else if (/\b(oi|olá|ola|menu|cardapio|cardápio)\b/.test(low)) reply = w.botWelcome;
-      else if (/\b(pix|pagamento)\b/.test(low)) reply = w.botPix;
-      else if (/\b(horario|horário|endereco|endereço)\b/.test(low)) reply = w.botHours;
-      setTimeout(() => { box.innerHTML += `<div class="wa-msg bot">${reply}</div>`; box.scrollTop = box.scrollHeight; }, 300);
+      const add = (message, sender) => { const node = document.createElement("div"); node.className = `wa-msg ${sender}`; node.textContent = message; box.append(node); };
+      add(text, "user");
+      const normalize = (value) => value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      const low = normalize(text), w = currentStore.whatsapp || {};
+      const has = (...words) => words.some(word => low.includes(word));
+      let reply;
+      if (w.botEnabled === false) reply = "Robô desativado.";
+      else if (/^(oi|ola|bom dia|boa tarde|boa noite|ajuda|inicio|comecar)$/.test(low)) reply = `${w.botWelcome || `Olá! Bem-vindo(a) à ${currentStore.name}.`}\n\nResponda:\n1 para ver o cardápio\n2 para horário e endereço\n3 para Pix\n4 para falar com a equipe`;
+      else if (/^(1|1️⃣)$/.test(low) || has("cardapio", "menu", "produtos", "fazer pedido", "pedir", "pedido")) {
+        const items = (currentStore.products || []).filter(p => p.available !== false).slice(0, 12).map(p => `• ${p.name} — ${formatBRL(p.price)}`).join("\n");
+        reply = `Cardápio de ${currentStore.name}\n\n${items ? `${items}\n\n` : ""}Faça seu pedido: ${window.location.origin}/?loja=${encodeURIComponent(currentSlug)}`;
+      } else if (/^(2|2️⃣)$/.test(low) || has("horario", "funcionamento", "endereco", "localizacao", "onde fica")) reply = `Funcionamento: ${w.botHours || currentStore.hours || "Consulte o horário com a equipe."}${w.botAddress || currentStore.address ? `\nEndereço: ${w.botAddress || currentStore.address}` : ""}`;
+      else if (/^(3|3️⃣)$/.test(low) || has("pix", "pagamento", "pagar")) reply = currentStore.pixKey ? (w.botPix || "Chave Pix: {pix}").replaceAll("{pix}", currentStore.pixKey) : (w.botPix || "A chave Pix ainda não foi cadastrada.").replace(/[^\n]*\{pix\}[^\n]*/g, "A chave Pix ainda não foi cadastrada.");
+      else if (/^(4|4️⃣)$/.test(low) || has("atendente", "equipe", "pessoa", "humano", "falar com alguem")) reply = w.botHandoff || "Certo! Nossa equipe continuará o atendimento por aqui.";
+      else reply = w.botFallback || "Não entendi. Responda 1 para o cardápio, 2 para horário/endereço, 3 para Pix ou 4 para falar com a equipe.";
+      setTimeout(() => { add(reply, "bot"); box.scrollTop = box.scrollHeight; }, 250);
     }
 
     function renderAdminProducts() {
@@ -2656,7 +2624,7 @@
       switchPdvView, addMotoboy, removeMotoboy, renderPdvLogistics, saveOrderCourier, sendRiderRoute,
       autoFillPdvCustomer, togglePdvDeliveryFields, togglePdvChangeField, renderPdvCart, submitPdvOrder, openProductEditor, closeProductEditor,
       handleProductImageUpload, addEditorOptionGroup, renderEditorGroups, saveProductFromEditor, toggleProductAvail, deleteProduct, addCategory,
-      deleteCategory, addCoupon, deleteCoupon, onWaProviderChange, saveWaSettings, generateCloudPairingQR, copyTag, clearSimChat, sendSimMessage,
+      deleteCategory, addCoupon, deleteCoupon, saveWaSettings, connectRailwayWhatsApp, copyTag, clearSimChat, sendSimMessage,
       handleStoreImageUpload, saveStoreSettings, exportBackupJSON, autoSlugifySaas, createSaasTenant, copyTenantLink, toggleTenantStatus, manageTenantAsMaster,
       openEditTenantModal, closeEditTenantModal, saveTenantEdit, deleteSaasTenant,
       openImportMenuModal, closeImportMenuModal, processImportMenuJson
