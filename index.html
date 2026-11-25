@@ -271,6 +271,8 @@
       .pdv-switcher { width: 100%; }
       .pdv-switcher button { flex: 1; }
       .dispatch-order { padding: 12px; }
+      #pdv-view-logistics form[onsubmit="addDeliveryZone(event)"] { grid-template-columns: 1fr 1fr !important; }
+      #pdv-view-logistics form[onsubmit="addDeliveryZone(event)"] > div:nth-child(3) { grid-column: 1 / -1; }
     }
   </style>
 </head>
@@ -424,8 +426,6 @@
         </div>
         <div class="store-meta-bar">
           <span class="store-meta-item"><i data-lucide="clock" style="width:14px;height:14px;"></i> <span id="cust-eta">35-50 min</span></span>
-          <span class="store-meta-item"><i data-lucide="bike" style="width:14px;height:14px;"></i> Entrega <span id="cust-delivery-fee">R$ 6,00</span></span>
-          <span class="store-meta-item"><i data-lucide="sparkles" style="width:14px;height:14px;color:#16A34A;"></i> Grátis acima de <span id="cust-free-above">R$ 80,00</span></span>
         </div>
       </div>
       <div id="cust-closed-banner" class="closed-alert-banner hidden">
@@ -619,6 +619,17 @@
         </div>
         </div>
         <div id="pdv-view-logistics" class="hidden">
+          <div class="panel-card" style="margin-bottom:18px;">
+            <h3 style="font-size:1.08rem;font-weight:800;">Taxas de entrega por raio</h3>
+            <p style="font-size:.82rem;color:var(--text-muted);margin:4px 0 14px;">Defina o raio máximo, o preço e os bairros atendidos em cada faixa. O checkout usa o bairro informado pelo cliente; cadastre cada bairro em apenas uma faixa.</p>
+            <form onsubmit="addDeliveryZone(event)" style="display:grid;grid-template-columns:minmax(130px,.7fr) minmax(130px,.7fr) minmax(220px,2fr) auto;gap:9px;align-items:end;margin-bottom:12px;">
+              <div><label class="form-label" for="delivery-zone-radius">Raio máximo (km)</label><input id="delivery-zone-radius" type="number" class="form-input" min="0.1" step="0.1" required placeholder="Ex.: 3" /></div>
+              <div><label class="form-label" for="delivery-zone-fee">Valor (R$)</label><input id="delivery-zone-fee" type="number" class="form-input" min="0" step="0.01" required placeholder="Ex.: 6.00" /></div>
+              <div><label class="form-label" for="delivery-zone-neighborhoods">Bairros desta faixa</label><input id="delivery-zone-neighborhoods" class="form-input" required placeholder="Centro, São Marcos" /></div>
+              <button type="submit" class="btn btn-primary">Adicionar faixa</button>
+            </form>
+            <div id="pdv-delivery-zones"></div>
+          </div>
           <div class="logistics-layout">
             <div class="panel-card">
               <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
@@ -959,14 +970,15 @@
           <div id="cust-address-wrap" class="address-box-grid">
             <div style="font-size:0.78rem;font-weight:800;margin-bottom:8px;color:#334155;">Endereço Completo de Entrega</div>
             <div style="display:grid;grid-template-columns:2fr 0.8fr;gap:8px;margin-bottom:8px;">
-              <div><label class="form-label">Rua / Avenida *</label><input type="text" id="cust-addr-street" class="form-input" placeholder="Ex: Rua Ernesto José de Paula" /></div>
-              <div><label class="form-label">Número *</label><input type="text" id="cust-addr-number" class="form-input" placeholder="Ex: 420" /></div>
+              <div><label class="form-label">Rua / Avenida *</label><input type="text" id="cust-addr-street" class="form-input" oninput="updateDeliveryQuote()" placeholder="Digite a rua ou avenida" /></div>
+              <div><label class="form-label">Número *</label><input type="text" id="cust-addr-number" class="form-input" oninput="updateDeliveryQuote()" placeholder="Número do imóvel" /></div>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
-              <div><label class="form-label">Bairro *</label><input type="text" id="cust-addr-neighborhood" class="form-input" placeholder="Ex: São Marcos" /></div>
+              <div><label class="form-label">Bairro *</label><input type="text" id="cust-addr-neighborhood" class="form-input" oninput="updateDeliveryQuote()" placeholder="Digite o bairro" /></div>
               <div><label class="form-label">Complemento / Apto</label><input type="text" id="cust-addr-complement" class="form-input" placeholder="Casa 2, Bloco B..." /></div>
             </div>
             <div><label class="form-label">Ponto de Referência</label><input type="text" id="cust-addr-reference" class="form-input" placeholder="Próximo ao mercado / portão preto..." /></div>
+            <p id="cust-delivery-quote-message" aria-live="polite" style="font-size:.8rem;color:var(--text-muted);margin-top:9px;">Informe rua, número e bairro para consultar a taxa de entrega.</p>
           </div>
 
           <div class="form-group">
@@ -1633,8 +1645,6 @@
       document.getElementById("cust-store-name").textContent = s.name;
       document.getElementById("cust-store-subtitle").textContent = s.subtitle;
       document.getElementById("cust-eta").textContent = s.eta;
-      document.getElementById("cust-delivery-fee").textContent = formatBRL(s.deliveryFee);
-      document.getElementById("cust-free-above").textContent = formatBRL(s.freeDeliveryAbove);
 
       const badge = document.getElementById("cust-status-badge");
       const closedAlert = document.getElementById("cust-closed-banner");
@@ -1803,16 +1813,29 @@
     }
     function calcCartTotals() {
       const subtotal = customerCart.reduce((s, i) => s + i.unitPrice * i.qty, 0);
-      let fee = cartDeliveryMode === "delivery" ? Number(currentStore.deliveryFee) : 0;
-      if (subtotal >= Number(currentStore.freeDeliveryAbove)) fee = 0;
+      const zone = cartDeliveryMode === "delivery" ? findCustomerDeliveryZone() : null;
+      let fee = cartDeliveryMode === "pickup" ? 0 : zone ? Number(zone.fee) : null;
       let discount = 0;
       if (appliedCoupon) {
         if (appliedCoupon.type === "percent") discount = subtotal * (appliedCoupon.value / 100);
         else if (appliedCoupon.type === "fixed") discount = Math.min(subtotal, appliedCoupon.value);
-        else if (appliedCoupon.type === "shipping") fee = 0;
+        else if (appliedCoupon.type === "shipping" && fee !== null) fee = 0;
       }
-      return { subtotal, fee, discount, total: Math.max(0, subtotal + fee - discount) };
+      return { subtotal, fee, discount, total: fee === null ? null : Math.max(0, subtotal + fee - discount), zone };
     }
+
+    function customerAddressReady() {
+      return Boolean(document.getElementById("cust-addr-street")?.value.trim() && document.getElementById("cust-addr-number")?.value.trim() && document.getElementById("cust-addr-neighborhood")?.value.trim());
+    }
+
+    function findCustomerDeliveryZone() {
+      if (!customerAddressReady()) return null;
+      const neighborhood = normalizeCategoryKey(document.getElementById("cust-addr-neighborhood").value);
+      return (currentStore.deliveryZones || []).find(zone => (zone.neighborhoods || []).some(name => normalizeCategoryKey(name) === neighborhood)) || null;
+    }
+
+    function updateDeliveryQuote() { renderCartDrawer(); }
+
     function renderCartDrawer() {
       const listEl = document.getElementById("cart-items-list");
       const checkoutEl = document.getElementById("cart-checkout-fields");
@@ -1837,11 +1860,19 @@
           </div>
         </div>`).join("");
       checkoutEl.classList.remove("hidden"); footerEl.classList.remove("hidden");
-      const { subtotal, fee, discount, total } = calcCartTotals();
+      const { subtotal, fee, discount, total, zone } = calcCartTotals();
+      const quoteMessage = document.getElementById("cust-delivery-quote-message");
+      if (quoteMessage) {
+        if (cartDeliveryMode === "pickup") quoteMessage.textContent = "Retirada no local sem taxa de entrega.";
+        else if (!customerAddressReady()) quoteMessage.textContent = "Informe rua, número e bairro para consultar a taxa de entrega.";
+        else if (!(currentStore.deliveryZones || []).length) quoteMessage.textContent = "A loja ainda não cadastrou as faixas de entrega.";
+        else if (fee === null) quoteMessage.textContent = `Não atendemos o bairro “${document.getElementById("cust-addr-neighborhood").value.trim()}” no delivery. Escolha retirada no local.`;
+        else quoteMessage.textContent = `Frete ${formatBRL(fee)} · faixa até ${Number(zone.maxKm).toLocaleString("pt-BR")} km.`;
+      }
       document.getElementById("checkout-sub").textContent = formatBRL(subtotal);
-      document.getElementById("checkout-fee").textContent = fee === 0 ? "Grátis" : formatBRL(fee);
+      document.getElementById("checkout-fee").textContent = fee === null ? "Preencha o endereço" : fee === 0 ? "Grátis" : formatBRL(fee);
       document.getElementById("checkout-disc").textContent = "- " + formatBRL(discount);
-      document.getElementById("checkout-total").textContent = formatBRL(total);
+      document.getElementById("checkout-total").textContent = total === null ? "—" : formatBRL(total);
     }
     function changeCustomerCartQty(idx, delta) { const item = customerCart[idx]; if (!item) return; item.qty += delta; if (item.qty < 1) customerCart.splice(idx, 1); updateFloatingCartBar(); renderCartDrawer(); }
     function removeCustomerCartItem(idx) { customerCart.splice(idx, 1); updateFloatingCartBar(); renderCartDrawer(); }
@@ -1860,6 +1891,8 @@
       if (cartDeliveryMode === "delivery" && (!street || !number || !neighborhood)) {
         showToast("Preencha Rua, Número e Bairro para entrega.", "warning"); return;
       }
+      const zone = cartDeliveryMode === "delivery" ? findCustomerDeliveryZone() : null;
+      if (cartDeliveryMode === "delivery" && !zone) { showToast("A loja não atende esse bairro no delivery. Escolha retirada ou fale com a loja.", "warning"); return; }
 
       localStorage.setItem("last_customer_whatsapp", phone);
       const fullAddress = cartDeliveryMode === "delivery" ? buildFormattedAddress("cust") : "Retirada no Balcão";
@@ -1867,7 +1900,7 @@
       const newOrder = {
         id: "PED-" + Math.floor(1000 + Math.random() * 9000),
         customerName: name, customerPhone: phone, type: cartDeliveryMode,
-        address: fullAddress,
+        address: fullAddress, deliveryRadiusKm: zone ? Number(zone.maxKm) : 0, deliveryNeighborhood: zone ? neighborhood : "",
         payment, items: structuredClone(customerCart), subtotal, fee, discount, total,
         status: "novo", createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
         createdTimestamp: Date.now()
@@ -1977,7 +2010,10 @@
     function renderPdvLogistics() {
       const queue = document.getElementById("pdv-ready-orders");
       const riderList = document.getElementById("pdv-motoboy-list");
-      if (!queue || !riderList) return;
+      const zonesList = document.getElementById("pdv-delivery-zones");
+      if (!queue || !riderList || !zonesList) return;
+      const deliveryZones = Array.isArray(currentStore.deliveryZones) ? currentStore.deliveryZones : [];
+      zonesList.innerHTML = deliveryZones.length ? deliveryZones.slice().sort((a, b) => Number(a.maxKm) - Number(b.maxKm)).map(zone => `<div class="rider-row"><div><strong>Até ${Number(zone.maxKm).toLocaleString("pt-BR")} km · ${formatBRL(zone.fee)}</strong><div style="font-size:.78rem;color:var(--text-muted);">Bairros: ${(zone.neighborhoods || []).join(", ")}</div></div><button type="button" class="btn btn-outline btn-sm" style="color:#DC2626;" onclick="removeDeliveryZone('${zone.id}')">Remover</button></div>`).join("") : `<div class="logistics-empty">Nenhuma faixa cadastrada. Cadastre ao menos uma faixa para aceitar pedidos com entrega.</div>`;
       const ready = currentOrders.filter(o => o.status === "pronto" && o.type === "delivery");
       const riders = Array.isArray(currentStore.motoboys) ? currentStore.motoboys : [];
       const count = document.getElementById("pdv-ready-count");
@@ -1988,6 +2024,7 @@
         return `<article class="dispatch-order">
           <div class="dispatch-order-top"><strong>${o.id} · ${o.customerName || "Cliente"}</strong><span class="status-tag status-pronto">PRONTO</span></div>
           <div class="dispatch-address"><strong>Destino</strong><br>${o.address || "Endereço não informado"}</div>
+          ${Number(o.fee) > 0 ? `<div style="font-size:.82rem;color:var(--text-muted);">Taxa de entrega: ${formatBRL(o.fee)}${o.deliveryRadiusKm ? ` · faixa até ${o.deliveryRadiusKm} km` : ""}</div>` : ""}
           <div style="font-size:.82rem;color:var(--text-muted);"><strong>Itens:</strong> ${items || "—"}</div>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
             <select id="courier-${key}" class="form-select" aria-label="Motoboy do pedido ${o.id}" style="flex:1;min-width:180px;" onchange="saveOrderCourier('${key}', this.value)">
@@ -2000,6 +2037,29 @@
       }).join("") : `<div class="logistics-empty"><div style="font-size:1.5rem;margin-bottom:8px;">🛵</div><strong>Nenhum pedido aguardando saída</strong><p style="margin-top:4px;">Quando um pedido de entrega estiver pronto, ele aparecerá nesta fila.</p></div>`;
       riderList.innerHTML = riders.length ? riders.map(r => `<div class="rider-row"><div><strong>${r.name}</strong><div style="font-size:.78rem;color:var(--text-muted);">+${r.phone}</div></div><div style="display:flex;gap:6px;"><a class="btn btn-outline btn-sm" href="https://wa.me/${normalizeWhatsAppPhone(r.phone)}" target="_blank" rel="noopener noreferrer" aria-label="Abrir WhatsApp de ${r.name}">WhatsApp</a><button type="button" class="btn btn-outline btn-sm" onclick="removeMotoboy('${r.id}')" aria-label="Remover ${r.name}">×</button></div></div>`).join("") : `<p style="padding:18px 0;text-align:center;font-size:.82rem;color:var(--text-muted);">Cadastre o primeiro motoboy para começar.</p>`;
       if (window.lucide) lucide.createIcons();
+    }
+
+    async function addDeliveryZone(event) {
+      event.preventDefault();
+      const maxKm = Number(document.getElementById("delivery-zone-radius").value);
+      const fee = Number(document.getElementById("delivery-zone-fee").value);
+      const neighborhoods = [...new Set(document.getElementById("delivery-zone-neighborhoods").value.split(",").map(name => name.trim()).filter(Boolean))];
+      if (!Number.isFinite(maxKm) || maxKm <= 0 || !Number.isFinite(fee) || fee < 0 || !neighborhoods.length) { showToast("Informe um raio, valor e pelo menos um bairro.", "warning"); return; }
+      const existing = currentStore.deliveryZones || [];
+      const usedNames = new Set(existing.flatMap(zone => (zone.neighborhoods || []).map(normalizeCategoryKey)));
+      if (neighborhoods.some(name => usedNames.has(normalizeCategoryKey(name)))) { showToast("Cada bairro só pode pertencer a uma faixa. Remova-o da faixa atual primeiro.", "warning"); return; }
+      currentStore.deliveryZones = [...existing, { id: `delivery-${Date.now()}`, maxKm, fee, neighborhoods }].sort((a, b) => a.maxKm - b.maxKm);
+      await persistStoreData();
+      event.target.reset();
+      renderPdvLogistics();
+      showToast("Faixa de entrega salva.", "success");
+    }
+
+    async function removeDeliveryZone(id) {
+      currentStore.deliveryZones = (currentStore.deliveryZones || []).filter(zone => zone.id !== id);
+      await persistStoreData();
+      renderPdvLogistics();
+      renderCartDrawer();
     }
 
     async function saveOrderCourier(key, riderId) {
@@ -2118,7 +2178,7 @@
           <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);"><strong>Itens:</strong>
             ${(o.items || []).map(i => `<div>• ${i.qty}x ${i.name} (${formatBRL(i.unitPrice * i.qty)}) ${i.optionsText ? `<br/><small style="color:#64748B;">${i.optionsText}</small>` : ""}${i.notes ? `<br/><small style="color:#B45309;">Obs: ${i.notes}</small>` : ""}</div>`).join("")}
           </div>
-          <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);"><strong>Total: ${formatBRL(o.total)}</strong></div>
+          <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);"><div>Subtotal: ${formatBRL(o.subtotal)} · Taxa de entrega: ${formatBRL(o.fee)}</div><strong>Total: ${formatBRL(o.total)}</strong></div>
         </div>`;
       document.getElementById("od-footer").innerHTML = `<button type="button" class="btn btn-primary btn-sm" onclick="printOrderReceipt('${key}')">Imprimir Comanda 80mm</button><button type="button" class="btn btn-dark btn-sm" onclick="closeOrderDetailModal()">Fechar</button>`;
       document.getElementById("order-detail-modal").classList.remove("hidden");
@@ -2656,10 +2716,10 @@
     Object.assign(window, {
       switchView, enterStoreCatalog, openTrackOrdersModal, closeTrackOrdersModal, searchCustomerOrdersByPhone,
       openStoreInfoModal, renderCustomerMenu, selectCustomerCat, openProductModal, closeProductModal, changeModalQty, handleModalOptionChange, recalcModalPrice, confirmAddModalItem,
-      openCartDrawer, closeCartDrawer, applyCartCoupon, setCartDeliveryMode, toggleCustPaymentInfo, changeCustomerCartQty, removeCustomerCartItem, finalizeCustomerOrder,
+      openCartDrawer, closeCartDrawer, applyCartCoupon, setCartDeliveryMode, toggleCustPaymentInfo, updateDeliveryQuote, changeCustomerCartQty, removeCustomerCartItem, finalizeCustomerOrder,
       handleAdminLogin, fillDemoLogin, handleAdminLogout, switchAdminTab, openStorePublicLink, copyCurrentStoreUrl, toggleStoreOpen, setOrderFilter,
       advanceOrderStatus, openOrderDetailModal, closeOrderDetailModal, printOrderReceipt, renderPdvCatalog, selectPdvCategory, handlePdvItemClick, removePdvCartItem, clearPdvCart,
-      switchPdvView, addMotoboy, removeMotoboy, renderPdvLogistics, saveOrderCourier, sendRiderRoute,
+      switchPdvView, addMotoboy, removeMotoboy, addDeliveryZone, removeDeliveryZone, renderPdvLogistics, saveOrderCourier, sendRiderRoute,
       autoFillPdvCustomer, togglePdvDeliveryFields, togglePdvChangeField, renderPdvCart, submitPdvOrder, openProductEditor, closeProductEditor,
       handleProductImageUpload, addEditorOptionGroup, renderEditorGroups, saveProductFromEditor, toggleProductAvail, deleteProduct, addCategory, moveCategory,
       deleteCategory, addCoupon, deleteCoupon, saveWaSettings, connectRailwayWhatsApp, copyTag, clearSimChat, sendSimMessage,
