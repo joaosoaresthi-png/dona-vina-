@@ -20,12 +20,14 @@ const seen = new Set();
 const logger = pino({ level: process.env.LOG_LEVEL || 'warn' });
 const app = express();
 app.disable('x-powered-by');
+app.set('trust proxy', 1);
 app.use(cors({ origin(origin, cb) { if (!origin || origins.has(origin)) return cb(null, true); cb(new Error('Origem não autorizada.')); }, methods: ['GET','POST','OPTIONS'], allowedHeaders: ['Authorization','Content-Type'], maxAge: 600 }));
 app.use(express.json({ limit: '100kb' }));
 app.use(rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: true, legacyHeaders: false }));
 
 function slugOf(value) { const slug = String(value || '').toLowerCase(); if (!/^[a-z0-9](?:[a-z0-9-]{0,58}[a-z0-9])?$/.test(slug)) { const e = new Error('Slug inválido.'); e.status = 400; throw e; } return slug; }
-function sessionFor(slug) { if (!sessions.has(slug)) sessions.set(slug, { state: 'disconnected', qr: null, phone: null, error: null, socket: null, starting: null, timer: null, generation: 0, pendingMessages: new Map() }); return sessions.get(slug); }
+// shortcut: pauses live in memory and reset on Railway restart; persist per chat if pauses must survive redeploys.
+function sessionFor(slug) { if (!sessions.has(slug)) sessions.set(slug, { state: 'disconnected', qr: null, phone: null, error: null, socket: null, starting: null, timer: null, generation: 0, pendingMessages: new Map(), automatedMessageIds: new Set(), pausedChats: new Set() }); return sessions.get(slug); }
 function failPending(s, error) { for (const pending of s.pendingMessages.values()) { clearTimeout(pending.timer); pending.reject(error); } s.pendingMessages.clear(); }
 function stateOf(slug) { const s = sessionFor(slug); return { store: slug, state: s.state, qr: s.qr, phone: s.phone, error: s.error }; }
 async function authorize(req, res, next) {
@@ -41,6 +43,17 @@ async function authorize(req, res, next) {
   } catch (e) { res.status(e.status || 401).json({ error: e.status ? e.message : 'Sessão inválida ou expirada.' }); }
 }
 function phoneDigits(value) { let d = String(value || '').replace(/\D/g, ''); if (d.length === 10 || d.length === 11) d = '55' + d; return d.startsWith('55') && d.length >= 12 && d.length <= 13 ? d : null; }
+function isBotTrigger(text) {
+  const t = String(text || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+  return /^(1|1️⃣|2|2️⃣|3|3️⃣|4|4️⃣)$/.test(t) ||
+    /\b(cardapio|menu|produtos|fazer pedido|pedir|pedido|pix|pagamento|pagar|horario|funcionamento|endereco|localizacao|onde fica|atendente|equipe|pessoa|humano|falar com alguem|oi|ola|bom dia|boa tarde|boa noite|ajuda|inicio|comecar)\b/.test(t);
+}
+function markAutomated(s, id) { s.automatedMessageIds.add(id); const timer = setTimeout(() => s.automatedMessageIds.delete(id), 60_000); timer.unref(); }
+async function sendAutomated(s, jid, text) {
+  const messageId = randomUUID(); markAutomated(s, messageId);
+  try { return await s.socket.sendMessage(jid, { text }, { messageId }); }
+  catch (e) { s.automatedMessageIds.delete(messageId); throw e; }
+}
 function botReply(text, store = {}, slug = '') {
   const w = store.whatsapp || {};
   if (w.botEnabled === false) return null;
@@ -55,27 +68,33 @@ function botReply(text, store = {}, slug = '') {
   const greeting = () => `${w.botWelcome || `Olá! 😊 Bem-vindo(a) à ${name}.`}\n\nComo posso ajudar? Responda com uma opção:\n1️⃣ Ver cardápio / fazer pedido\n2️⃣ Horário e endereço\n3️⃣ Pagamento / Pix\n4️⃣ Falar com a equipe`;
   if (/^(1|1️⃣)$/.test(t) || /\b(cardapio|menu|produtos|fazer pedido|pedir|pedido)\b/.test(t)) return menu();
   if (/^(2|2️⃣)$/.test(t) || /\b(horario|funcionamento|endereco|localizacao|onde fica)\b/.test(t)) {
-    const hours = store.hours || w.botHours || 'Consulte o horário diretamente com a equipe.';
-    const address = store.address ? `\n📍 Endereço: ${store.address}` : '';
+    const hours = w.botHours || store.hours || 'Consulte o horário diretamente com a equipe.';
+    const addressValue = w.botAddress || store.address;
+    const address = addressValue ? `\n📍 Endereço: ${addressValue}` : '';
     return `🕒 Funcionamento: ${hours}${address}`;
   }
   if (/^(3|3️⃣)$/.test(t) || /\b(pix|pagamento|pagar)\b/.test(t)) {
-    if (store.pixKey) return `💳 Pix: ${store.pixKey}\n\nSe precisar, responda 4 para falar com a equipe.`;
-    return w.botPix || 'A chave Pix ainda não foi cadastrada. Responda 4 para falar com a equipe.';
+    if (store.pixKey) return (w.botPix || '💳 Pix: {pix}\n\nEnvie o comprovante por aqui!').replace(/\{pix\}|12\.345\.678\/0001-99/g, store.pixKey);
+    return (w.botPix || 'A chave Pix ainda não foi cadastrada. Responda 4 para falar com a equipe.').replace(/[^\n]*\{pix\}[^\n]*/g, 'A chave Pix ainda não foi cadastrada. Responda 4 para falar com a equipe.');
   }
   if (/^(4|4️⃣)$/.test(t) || /\b(atendente|equipe|pessoa|humano|falar com alguem)\b/.test(t)) {
-    return `👋 Certo! A equipe de ${name} pode continuar esta conversa por aqui. Escreva sua dúvida ou o que deseja pedir.`;
+    return w.botHandoff || `👋 Certo! A equipe de ${name} pode continuar esta conversa por aqui. Escreva sua dúvida ou o que deseja pedir.`;
   }
   if (/\b(oi|ola|bom dia|boa tarde|boa noite|ajuda|inicio|comecar)\b/.test(t) || !t) return greeting();
-  return 'Não entendi essa opção. 😊\n\nResponda 1 para ver o cardápio, 2 para horário/endereço, 3 para Pix ou 4 para falar com a equipe.';
+  return w.botFallback || 'Não entendi essa opção. 😊\n\nResponda 1 para ver o cardápio, 2 para horário/endereço, 3 para Pix ou 4 para falar com a equipe.';
 }
 async function incoming(slug, msg) {
   const id = msg.key?.id, jid = msg.key?.remoteJid;
-  if (!id || !jid || msg.key.fromMe || jid === 'status@broadcast' || jid.endsWith('@g.us') || seen.has(id)) return;
-  seen.add(id); if (seen.size > 2000) seen.delete(seen.values().next().value);
+  const seenId = `${slug}:${id}`;
+  if (!id || !jid || msg.key.fromMe || jid === 'status@broadcast' || jid.endsWith('@g.us') || seen.has(seenId)) return;
+  seen.add(seenId); if (seen.size > 2000) seen.delete(seen.values().next().value);
   const m = msg.message || {}; const text = m.conversation || m.extendedTextMessage?.text || m.imageMessage?.caption || m.videoMessage?.caption || '';
   if (!text.trim()) return;
-  try { const snap = await db.collection('stores').doc(slug).get(); const store = snap.data() || {}; const reply = botReply(text, store, slug); if (reply) await sessionFor(slug).socket?.sendMessage(jid, { text: reply }); }
+  try {
+    const s = sessionFor(slug);
+    if (s.pausedChats.has(jid)) { if (!isBotTrigger(text)) return; s.pausedChats.delete(jid); }
+    const snap = await db.collection('stores').doc(slug).get(); const store = snap.data() || {}; const reply = botReply(text, store, slug); if (reply) await sendAutomated(s, jid, reply);
+  }
   catch (e) { logger.error({ err: e, slug }, 'Falha ao responder'); }
 }
 async function start(slug) {
@@ -95,7 +114,18 @@ async function start(slug) {
         else if (status === 0) { clearTimeout(pending.timer); s.pendingMessages.delete(id); pending.reject(new Error('O WhatsApp recusou a mensagem. Confira se o número do motoboy está correto e se a sessão segue conectada.')); }
       }
     });
-    sock.ev.on('messages.upsert', ({ messages, type }) => { if (type === 'notify') messages.forEach((m) => void incoming(slug, m)); });
+    sock.ev.on('messages.upsert', ({ messages, type }) => {
+      if (type !== 'notify') return;
+      for (const m of messages) {
+        const jid = m.key?.remoteJid;
+        if (m.key?.fromMe) {
+          if (s.automatedMessageIds.delete(m.key.id)) continue;
+          if (jid && jid !== 'status@broadcast' && !jid.endsWith('@g.us')) s.pausedChats.add(jid);
+          continue;
+        }
+        void incoming(slug, m);
+      }
+    });
     sock.ev.on('connection.update', (u) => {
       if (s.generation !== generation) return;
       if (u.qr) { s.qr = u.qr; s.state = 'qr'; }
@@ -110,6 +140,7 @@ async function send(slug, jid, text) {
   const s = sessionFor(slug);
   if (s.state !== 'connected' || !s.socket) { const e = new Error('WhatsApp da loja não está conectado.'); e.status = 503; throw e; }
   const messageId = randomUUID();
+  markAutomated(s, messageId);
   const delivered = new Promise((resolve, reject) => {
     const timer = setTimeout(() => { s.pendingMessages.delete(messageId); const e = new Error('O WhatsApp aceitou o envio, mas não confirmou a entrega em 20 segundos. Verifique a sessão e se o destinatário já conversou com a loja.'); e.status = 504; reject(e); }, 20_000);
     s.pendingMessages.set(messageId, { resolve, reject, timer });
@@ -118,6 +149,7 @@ async function send(slug, jid, text) {
     await s.socket.sendMessage(jid, { text }, { messageId });
     await delivered;
   } catch (e) {
+    s.automatedMessageIds.delete(messageId);
     const pending = s.pendingMessages.get(messageId);
     if (pending) { clearTimeout(pending.timer); s.pendingMessages.delete(messageId); }
     throw e;
@@ -132,7 +164,7 @@ function orderText(tpl, order, store) {
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 app.get('/api/stores/:slug/whatsapp/status', authorize, (req, res) => res.json(stateOf(req.slug)));
-app.post('/api/stores/:slug/whatsapp/connect', authorize, async (req, res) => { try { await start(req.slug); res.json(stateOf(req.slug)); } catch (e) { res.status(500).json({ error: e.message, ...stateOf(req.slug) }); } });
+app.post('/api/stores/:slug/whatsapp/connect', authorize, async (req, res) => { try { const s = sessionFor(req.slug); if (s.state === 'logged_out') { await fs.rm(path.join(AUTH_DIR, req.slug), { recursive: true, force: true }); s.state = 'disconnected'; s.error = null; } await start(req.slug); res.json(stateOf(req.slug)); } catch (e) { res.status(500).json({ error: e.message, ...stateOf(req.slug) }); } });
 app.post('/api/stores/:slug/whatsapp/disconnect', authorize, async (req, res) => {
   const s = sessionFor(req.slug); clearTimeout(s.timer); s.generation++; try { await s.socket?.logout(); } catch {} s.socket?.end(undefined); s.socket = null; s.state = 'disconnected'; s.qr = null; s.phone = null; s.error = null;
   await fs.rm(path.join(AUTH_DIR, req.slug), { recursive: true, force: true }); res.json(stateOf(req.slug));
