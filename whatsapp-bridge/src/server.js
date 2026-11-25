@@ -164,4 +164,5 @@ const server = app.listen(PORT, '0.0.0.0', async () => {
   const entries = await fs.readdir(AUTH_DIR, { withFileTypes: true }).catch(() => []);
   for (const e of entries) if (e.isDirectory() && /^[a-z0-9-]{1,60}$/.test(e.name)) void start(e.name).catch((err) => logger.error({ err, slug: e.name }, 'Falha ao restaurar sessão'));
 });
-function shutdown() { server.close(); for (const s of se
+function shutdown() { server.close(); for (const s of sessions.values()) { clearTimeout(s.timer); s.socket?.end(undefined); } setTimeout(() => process.exit(0), 1000).unref(); }
+process.on('SIGTERM', shutdown); process.on('SIGINT', shutdown);
