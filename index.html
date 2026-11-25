@@ -738,6 +738,7 @@
                 <div><h3 style="font-size:1rem;font-weight:800;">Robô de Atendimento</h3><small style="color:var(--text-muted);">Configure como ele responde aos clientes.</small></div>
                 <label class="switch"><input type="checkbox" id="bot-enabled-toggle" checked onchange="saveWaSettings()" /><span class="slider"></span></label>
               </div>
+              <div style="background:#F0F7F1;border:1px solid #D8E8D8;border-radius:10px;padding:10px 12px;margin:12px 0;font-size:0.78rem;line-height:1.5;color:#315F42;">Quando um atendente responder manualmente, o robô pausa nesta conversa. Ele só volta quando o cliente enviar uma saudação, palavra-chave ou opção do menu.</div>
               <div class="form-group"><label class="form-label">Boas-vindas e menu</label><textarea id="bot-msg-welcome" class="form-textarea" rows="3" maxlength="1000" placeholder="Olá! Seja bem-vindo à nossa loja."></textarea><small style="color:var(--text-muted);">Responde a saudações e pedidos de cardápio. O robô inclui as opções 1 a 4.</small></div>
               <div class="form-group"><label class="form-label">Pagamento e Pix</label><textarea id="bot-msg-pix" class="form-textarea" rows="2" maxlength="600" placeholder="Informe como o cliente pode pagar."></textarea><small style="color:var(--text-muted);">Pode usar {pix} para inserir a chave cadastrada na loja.</small></div>
               <div class="form-group"><label class="form-label">Horário de funcionamento</label><textarea id="bot-msg-hours" class="form-textarea" rows="2" maxlength="500" placeholder="Ex.: todos os dias, das 18h às 23h."></textarea></div>
@@ -2626,13 +2627,4 @@
       handleProductImageUpload, addEditorOptionGroup, renderEditorGroups, saveProductFromEditor, toggleProductAvail, deleteProduct, addCategory,
       deleteCategory, addCoupon, deleteCoupon, saveWaSettings, connectRailwayWhatsApp, copyTag, clearSimChat, sendSimMessage,
       handleStoreImageUpload, saveStoreSettings, exportBackupJSON, autoSlugifySaas, createSaasTenant, copyTenantLink, toggleTenantStatus, manageTenantAsMaster,
-      openEditTenantModal, closeEditTenantModal, saveTenantEdit, deleteSaasTenant,
-      openImportMenuModal, closeImportMenuModal, processImportMenuJson
-    });
-
-    const nextMonth = new Date(); nextMonth.setDate(nextMonth.getDate() + 30);
-    document.getElementById("saas-expires-at").value = nextMonth.toISOString().split("T")[0];
-    bootApp();
-  </script>
-</body>
-</html>
+      openEditTenantModal, closeEditTenantModal
