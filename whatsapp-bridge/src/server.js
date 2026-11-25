@@ -72,8 +72,9 @@ function botReply(text, store = {}, slug = '') {
 }
 async function incoming(slug, msg) {
   const id = msg.key?.id, jid = msg.key?.remoteJid;
-  if (!id || !jid || msg.key.fromMe || jid === 'status@broadcast' || jid.endsWith('@g.us') || seen.has(id)) return;
-  seen.add(id); if (seen.size > 2000) seen.delete(seen.values().next().value);
+  const seenId = `${slug}:${id}`;
+  if (!id || !jid || msg.key.fromMe || jid === 'status@broadcast' || jid.endsWith('@g.us') || seen.has(seenId)) return;
+  seen.add(seenId); if (seen.size > 2000) seen.delete(seen.values().next().value);
   const m = msg.message || {}; const text = m.conversation || m.extendedTextMessage?.text || m.imageMessage?.caption || m.videoMessage?.caption || '';
   if (!text.trim()) return;
   try { const snap = await db.collection('stores').doc(slug).get(); const store = snap.data() || {}; const reply = botReply(text, store, slug); if (reply) await sessionFor(slug).socket?.sendMessage(jid, { text: reply }); }
