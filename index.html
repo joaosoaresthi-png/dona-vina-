@@ -1143,7 +1143,7 @@
     let unsubscribeOrders = null;
     let unsubscribeTrackOrders = null;
     let publicViewStage = "welcome";
-    let activeCustomerCat = "all";
+    let activeCustomerCat = null;
     let customerCart = [];
     let appliedCoupon = null;
     let cartDeliveryMode = "delivery";
@@ -1642,9 +1642,10 @@
       badge.innerHTML = s.isOpen ? '<span class="pulse-dot"></span> Aberto agora' : '<span class="pulse-dot"></span> Loja Fechada';
       closedAlert.classList.toggle("hidden", s.isOpen);
 
-      document.getElementById("cust-category-tabs").innerHTML =
-        `<button type="button" class="cat-tab ${activeCustomerCat === "all" ? "active" : ""}" onclick="selectCustomerCat('all')">Todos</button>` +
-        (s.categories || []).map(c => `<button type="button" class="cat-tab ${activeCustomerCat === c.id ? "active" : ""}" onclick="selectCustomerCat('${c.id}')">${c.name}</button>`).join("");
+      const categories = s.categories || [];
+      if (!categories.some(category => category.id === activeCustomerCat)) activeCustomerCat = categories[0]?.id || null;
+      document.getElementById("cust-category-tabs").innerHTML = categories
+        .map(c => `<button type="button" class="cat-tab ${activeCustomerCat === c.id ? "active" : ""}" onclick="selectCustomerCat('${c.id}')">${c.name}</button>`).join("");
 
       renderCustomerMenu();
       updateFloatingCartBar();
@@ -1655,7 +1656,7 @@
 
     function renderCustomerMenu() {
       const q = (document.getElementById("cust-search-input").value || "").toLowerCase().trim();
-      const cats = activeCustomerCat === "all" ? (currentStore.categories || []) : (currentStore.categories || []).filter(c => c.id === activeCustomerCat);
+      const cats = (currentStore.categories || []).filter(c => c.id === activeCustomerCat);
       let html = "";
       cats.forEach(cat => {
         const items = (currentStore.products || []).filter(p => p.available && p.categoryId === cat.id && (!q || p.name.toLowerCase().includes(q) || (p.desc || "").toLowerCase().includes(q)));
@@ -2470,9 +2471,10 @@
     }
 
     function renderAdminCategories() {
-      document.getElementById("admin-categories-list").innerHTML = (currentStore.categories || []).map(c => `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border:1px solid var(--border);border-radius:10px;"><strong>${c.name}</strong><button type="button" class="btn btn-outline btn-sm" style="color:#DC2626;" onclick="deleteCategory('${c.id}')">Remover</button></div>`).join("");
+      document.getElementById("admin-categories-list").innerHTML = (currentStore.categories || []).map((c, index, categories) => `<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 14px;border:1px solid var(--border);border-radius:10px;"><strong>${c.name}</strong><div style="display:flex;align-items:center;gap:6px;"><button type="button" class="btn btn-outline btn-sm" aria-label="Mover ${c.name} para cima" title="Mover para cima" ${index === 0 ? "disabled" : ""} onclick="moveCategory('${c.id}',-1)">↑</button><button type="button" class="btn btn-outline btn-sm" aria-label="Mover ${c.name} para baixo" title="Mover para baixo" ${index === categories.length - 1 ? "disabled" : ""} onclick="moveCategory('${c.id}',1)">↓</button><button type="button" class="btn btn-outline btn-sm" style="color:#DC2626;" onclick="deleteCategory('${c.id}')">Remover</button></div></div>`).join("");
     }
     async function addCategory(e) { e.preventDefault(); const name = document.getElementById("new-cat-name").value.trim(); if (!name) return; currentStore.categories.push({ id: "cat-" + Date.now(), name }); document.getElementById("new-cat-name").value = ""; await persistStoreData(); renderAdminCategories(); }
+    async function moveCategory(id, direction) { const categories = currentStore.categories || [], index = categories.findIndex(category => category.id === id), target = index + direction; if (index < 0 || target < 0 || target >= categories.length) return; [categories[index], categories[target]] = [categories[target], categories[index]]; currentStore.categories = categories; await persistStoreData(); renderAdminCategories(); }
     async function deleteCategory(id) { currentStore.categories = currentStore.categories.filter(c => c.id !== id); await persistStoreData(); renderAdminCategories(); }
 
     function renderAdminCoupons() {
@@ -2649,7 +2651,7 @@
       advanceOrderStatus, openOrderDetailModal, closeOrderDetailModal, printOrderReceipt, renderPdvCatalog, selectPdvCategory, handlePdvItemClick, removePdvCartItem, clearPdvCart,
       switchPdvView, addMotoboy, removeMotoboy, renderPdvLogistics, saveOrderCourier, sendRiderRoute,
       autoFillPdvCustomer, togglePdvDeliveryFields, togglePdvChangeField, renderPdvCart, submitPdvOrder, openProductEditor, closeProductEditor,
-      handleProductImageUpload, addEditorOptionGroup, renderEditorGroups, saveProductFromEditor, toggleProductAvail, deleteProduct, addCategory,
+      handleProductImageUpload, addEditorOptionGroup, renderEditorGroups, saveProductFromEditor, toggleProductAvail, deleteProduct, addCategory, moveCategory,
       deleteCategory, addCoupon, deleteCoupon, saveWaSettings, connectRailwayWhatsApp, copyTag, clearSimChat, sendSimMessage,
       handleStoreImageUpload, saveStoreSettings, exportBackupJSON, autoSlugifySaas, createSaasTenant, copyTenantLink, toggleTenantStatus, manageTenantAsMaster,
       openEditTenantModal, closeEditTenantModal, saveTenantEdit, deleteSaasTenant,
