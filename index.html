@@ -937,7 +937,7 @@
         <div id="cart-success-screen" class="hidden" style="text-align:center;padding:28px 12px;">
           <h3 style="font-size:1.25rem;font-weight:800;color:var(--success);">Pedido Confirmado!</h3>
           <p id="cart-success-code" style="font-size:0.9rem;font-weight:700;color:var(--primary);margin-top:6px;"></p>
-          <p style="font-size:0.84rem;color:var(--text-muted);margin-top:8px;">Seu pedido chegou na cozinha e a confirmação foi enviada para o seu WhatsApp!</p>
+          <p style="font-size:0.84rem;color:var(--text-muted);margin-top:8px;">Seu pedido foi registrado e enviado para a cozinha. Guarde o código para acompanhar o andamento.</p>
           <button type="button" class="btn btn-dark" style="width:100%;margin-top:16px;" onclick="closeCartDrawer(); openTrackOrdersModal();">Acompanhar Meu Pedido Agora</button>
           <button type="button" class="btn btn-outline" style="width:100%;margin-top:8px;" onclick="closeCartDrawer()">Voltar ao Cardápio</button>
         </div>
@@ -986,7 +986,7 @@
         </div>
       </div>
       <div id="cart-drawer-footer" class="modal-footer hidden">
-        <button type="button" class="btn btn-whatsapp" style="width:100%;padding:13px;" onclick="finalizeCustomerOrder()">Confirmar Pedido Agora</button>
+        <button type="button" id="cust-submit-order" class="btn btn-whatsapp" style="width:100%;padding:13px;" onclick="finalizeCustomerOrder()">Confirmar Pedido Agora</button>
       </div>
     </div>
   </div>
@@ -1145,6 +1145,7 @@
     let publicViewStage = "welcome";
     let activeCustomerCat = null;
     let customerCart = [];
+    let isSubmittingCustomerOrder = false;
     let appliedCoupon = null;
     let cartDeliveryMode = "delivery";
     let modalContext = { product: null, qty: 1, target: "customer" };
@@ -1826,9 +1827,15 @@
           <div>
             <div style="font-weight:700;font-size:0.88rem;">${item.qty}x ${item.name}</div>
             ${item.optionsText ? `<div style="font-size:0.76rem;color:var(--text-muted);">${item.optionsText}</div>` : ""}
+            ${item.notes ? `<div style="font-size:0.76rem;color:#B45309;">Obs: ${item.notes}</div>` : ""}
             <div style="font-weight:700;font-size:0.84rem;color:var(--success);">${formatBRL(item.unitPrice * item.qty)}</div>
           </div>
-          <button type="button" style="color:#DC2626;font-size:0.78rem;font-weight:700;" onclick="removeCustomerCartItem(${idx})">Remover</button>
+          <div style="display:flex;align-items:center;gap:7px;flex-shrink:0;">
+            <button type="button" class="btn btn-outline btn-sm" aria-label="Diminuir quantidade de ${item.name}" onclick="changeCustomerCartQty(${idx},-1)">−</button>
+            <strong>${item.qty}</strong>
+            <button type="button" class="btn btn-outline btn-sm" aria-label="Aumentar quantidade de ${item.name}" onclick="changeCustomerCartQty(${idx},1)">+</button>
+            <button type="button" style="color:#DC2626;font-size:0.78rem;font-weight:700;" onclick="removeCustomerCartItem(${idx})">Remover</button>
+          </div>
         </div>`).join("");
       checkoutEl.classList.remove("hidden"); footerEl.classList.remove("hidden");
       const { subtotal, fee, discount, total } = calcCartTotals();
@@ -1837,16 +1844,20 @@
       document.getElementById("checkout-disc").textContent = "- " + formatBRL(discount);
       document.getElementById("checkout-total").textContent = formatBRL(total);
     }
+    function changeCustomerCartQty(idx, delta) { const item = customerCart[idx]; if (!item) return; item.qty += delta; if (item.qty < 1) customerCart.splice(idx, 1); updateFloatingCartBar(); renderCartDrawer(); }
     function removeCustomerCartItem(idx) { customerCart.splice(idx, 1); updateFloatingCartBar(); renderCartDrawer(); }
 
     async function finalizeCustomerOrder() {
+      if (isSubmittingCustomerOrder || !customerCart.length) return;
+      if (currentStore.isOpen === false) { showToast("A loja está fechada e não está aceitando pedidos online.", "warning"); return; }
       const name = document.getElementById("cust-order-name").value.trim();
-      const phone = document.getElementById("cust-order-phone").value.trim();
+      const phone = normalizeWhatsAppPhone(document.getElementById("cust-order-phone").value);
       const street = document.getElementById("cust-addr-street").value.trim();
       const number = document.getElementById("cust-addr-number").value.trim();
       const neighborhood = document.getElementById("cust-addr-neighborhood").value.trim();
       const payment = document.getElementById("cust-order-payment").value;
       if (!name || !phone) { showToast("Preencha seu nome e WhatsApp.", "warning"); return; }
+      if (!/^55\d{10,11}$/.test(phone)) { showToast("Informe um WhatsApp válido com DDD.", "warning"); return; }
       if (cartDeliveryMode === "delivery" && (!street || !number || !neighborhood)) {
         showToast("Preencha Rua, Número e Bairro para entrega.", "warning"); return;
       }
@@ -1862,24 +1873,26 @@
         status: "novo", createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
         createdTimestamp: Date.now()
       };
-      let orderRef;
-      try { orderRef = await addDoc(collection(db, "stores", currentSlug, "orders"), newOrder); }
-      catch (e) { showToast("Erro ao enviar pedido.", "error"); return; }
-      if (currentStore.whatsapp?.provider === "railway_bridge" && currentStore.whatsapp?.apiUrl) {
-        const base = currentStore.whatsapp.apiUrl.trim().replace(/\/+$/, "");
-        fetch(`${base}/api/stores/${encodeURIComponent(currentSlug)}/orders/${encodeURIComponent(orderRef.id)}/confirmation`, {
-          method: "POST"
-        }).catch(() => {});
-      } else {
-        await dispatchWhatsAppMessage(newOrder.customerPhone, formatTemplateMessage(currentStore.whatsapp?.tplConfirmacao, newOrder), true);
-      }
-
-      customerCart = []; appliedCoupon = null; updateFloatingCartBar();
-      document.getElementById("cart-items-list").innerHTML = "";
-      document.getElementById("cart-checkout-fields").classList.add("hidden");
-      document.getElementById("cart-drawer-footer").classList.add("hidden");
-      document.getElementById("cart-success-code").textContent = `Pedido ${newOrder.id} • Total ${formatBRL(newOrder.total)}`;
-      document.getElementById("cart-success-screen").classList.remove("hidden");
+      const submitButton = document.getElementById("cust-submit-order");
+      isSubmittingCustomerOrder = true;
+      submitButton.disabled = true;
+      submitButton.textContent = "Enviando pedido…";
+      try {
+        const orderRef = await addDoc(collection(db, "stores", currentSlug, "orders"), newOrder);
+        if (currentStore.whatsapp?.provider === "railway_bridge" && currentStore.whatsapp?.apiUrl) {
+          const base = currentStore.whatsapp.apiUrl.trim().replace(/\/+$/, "");
+          fetch(`${base}/api/stores/${encodeURIComponent(currentSlug)}/orders/${encodeURIComponent(orderRef.id)}/confirmation`, { method: "POST" }).catch(() => {});
+        } else {
+          await dispatchWhatsAppMessage(newOrder.customerPhone, formatTemplateMessage(currentStore.whatsapp?.tplConfirmacao, newOrder), true);
+        }
+        customerCart = []; appliedCoupon = null; updateFloatingCartBar();
+        document.getElementById("cart-items-list").innerHTML = "";
+        document.getElementById("cart-checkout-fields").classList.add("hidden");
+        document.getElementById("cart-drawer-footer").classList.add("hidden");
+        document.getElementById("cart-success-code").textContent = `Pedido ${newOrder.id} • Total ${formatBRL(newOrder.total)}`;
+        document.getElementById("cart-success-screen").classList.remove("hidden");
+      } catch (e) { showToast("Não foi possível registrar o pedido. Confira sua conexão e tente novamente.", "error"); }
+      finally { isSubmittingCustomerOrder = false; submitButton.disabled = false; submitButton.textContent = "Confirmar Pedido Agora"; }
     }
 
     function fillDemoLogin() { document.getElementById("login-email").value = MASTER_EMAIL; document.getElementById("login-pass").focus(); }
@@ -2645,22 +2658,4 @@
 
     Object.assign(window, {
       switchView, enterStoreCatalog, openTrackOrdersModal, closeTrackOrdersModal, searchCustomerOrdersByPhone,
-      openStoreInfoModal, renderCustomerMenu, selectCustomerCat, openProductModal, closeProductModal, changeModalQty, handleModalOptionChange, recalcModalPrice, confirmAddModalItem,
-      openCartDrawer, closeCartDrawer, applyCartCoupon, setCartDeliveryMode, toggleCustPaymentInfo, removeCustomerCartItem, finalizeCustomerOrder,
-      handleAdminLogin, fillDemoLogin, handleAdminLogout, switchAdminTab, openStorePublicLink, copyCurrentStoreUrl, toggleStoreOpen, setOrderFilter,
-      advanceOrderStatus, openOrderDetailModal, closeOrderDetailModal, printOrderReceipt, renderPdvCatalog, selectPdvCategory, handlePdvItemClick, removePdvCartItem, clearPdvCart,
-      switchPdvView, addMotoboy, removeMotoboy, renderPdvLogistics, saveOrderCourier, sendRiderRoute,
-      autoFillPdvCustomer, togglePdvDeliveryFields, togglePdvChangeField, renderPdvCart, submitPdvOrder, openProductEditor, closeProductEditor,
-      handleProductImageUpload, addEditorOptionGroup, renderEditorGroups, saveProductFromEditor, toggleProductAvail, deleteProduct, addCategory, moveCategory,
-      deleteCategory, addCoupon, deleteCoupon, saveWaSettings, connectRailwayWhatsApp, copyTag, clearSimChat, sendSimMessage,
-      handleStoreImageUpload, saveStoreSettings, exportBackupJSON, autoSlugifySaas, createSaasTenant, copyTenantLink, toggleTenantStatus, manageTenantAsMaster,
-      openEditTenantModal, closeEditTenantModal, saveTenantEdit, deleteSaasTenant,
-      openImportMenuModal, closeImportMenuModal, processImportMenuJson
-    });
-
-    const nextMonth = new Date(); nextMonth.setDate(nextMonth.getDate() + 30);
-    document.getElementById("saas-expires-at").value = nextMonth.toISOString().split("T")[0];
-    bootApp();
-  </script>
-</body>
-</html>
+      openStoreInfoModal, renderCustomerMenu, selectCustomerCat, openProductModal, closeProductModal, changeModalQty, handleModalOpti
