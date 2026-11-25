@@ -1234,7 +1234,7 @@
       const categories = (Array.isArray(store.categories) ? store.categories : []).map((category, index) => {
         const name = String(category.name || category.title || category.label || "").trim();
         const slug = normalizeCategoryKey(name).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || `categoria-${index + 1}`;
-        return { ...category, id: category.id || `cat-${slug}`, name };
+        return { ...category, id: String(category.id || `cat-${slug}`), name };
       });
       const byId = new Map(categories.map(category => [String(category.id), category]));
       const byName = new Map(categories.map(category => [normalizeCategoryKey(category.name), category]));
@@ -1242,6 +1242,7 @@
         const category = byId.get(String(product.categoryId || "")) || byName.get(normalizeCategoryKey(product.category || product.categoryName || product.categoryId));
         return {
           ...product,
+          id: product.id == null ? product.id : String(product.id),
           categoryId: category?.id || product.categoryId || "",
           desc: product.desc ?? product.description ?? "",
           available: product.available !== false,
@@ -1691,7 +1692,7 @@
 
     function openProductModal(productId, target = "customer") {
       if (target === "customer" && !currentStore.isOpen) { showToast("A loja está fechada no momento.", "warning"); return; }
-      const product = (currentStore.products || []).find(p => p.id === productId);
+      const product = (currentStore.products || []).find(p => String(p.id) === String(productId));
       if (!product) return;
       const groups = normalizeProductOptionGroups(product);
       modalContext = { product: { ...product, optionGroups: groups }, qty: 1, target };
