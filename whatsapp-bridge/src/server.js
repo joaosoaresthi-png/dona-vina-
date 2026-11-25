@@ -26,7 +26,8 @@ app.use(express.json({ limit: '100kb' }));
 app.use(rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: true, legacyHeaders: false }));
 
 function slugOf(value) { const slug = String(value || '').toLowerCase(); if (!/^[a-z0-9](?:[a-z0-9-]{0,58}[a-z0-9])?$/.test(slug)) { const e = new Error('Slug inválido.'); e.status = 400; throw e; } return slug; }
-function sessionFor(slug) { if (!sessions.has(slug)) sessions.set(slug, { state: 'disconnected', qr: null, phone: null, error: null, socket: null, starting: null, timer: null, generation: 0, pendingMessages: new Map() }); return sessions.get(slug); }
+// shortcut: pauses live in memory and reset on Railway restart; persist per chat if pauses must survive redeploys.
+function sessionFor(slug) { if (!sessions.has(slug)) sessions.set(slug, { state: 'disconnected', qr: null, phone: null, error: null, socket: null, starting: null, timer: null, generation: 0, pendingMessages: new Map(), automatedMessageIds: new Set(), pausedChats: new Set() }); return sessions.get(slug); }
 function failPending(s, error) { for (const pending of s.pendingMessages.values()) { clearTimeout(pending.timer); pending.reject(error); } s.pendingMessages.clear(); }
 function stateOf(slug) { const s = sessionFor(slug); return { store: slug, state: s.state, qr: s.qr, phone: s.phone, error: s.error }; }
 async function authorize(req, res, next) {
@@ -42,6 +43,17 @@ async function authorize(req, res, next) {
   } catch (e) { res.status(e.status || 401).json({ error: e.status ? e.message : 'Sessão inválida ou expirada.' }); }
 }
 function phoneDigits(value) { let d = String(value || '').replace(/\D/g, ''); if (d.length === 10 || d.length === 11) d = '55' + d; return d.startsWith('55') && d.length >= 12 && d.length <= 13 ? d : null; }
+function isBotTrigger(text) {
+  const t = String(text || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+  return /^(1|1️⃣|2|2️⃣|3|3️⃣|4|4️⃣)$/.test(t) ||
+    /\b(cardapio|menu|produtos|fazer pedido|pedir|pedido|pix|pagamento|pagar|horario|funcionamento|endereco|localizacao|onde fica|atendente|equipe|pessoa|humano|falar com alguem|oi|ola|bom dia|boa tarde|boa noite|ajuda|inicio|comecar)\b/.test(t);
+}
+function markAutomated(s, id) { s.automatedMessageIds.add(id); const timer = setTimeout(() => s.automatedMessageIds.delete(id), 60_000); timer.unref(); }
+async function sendAutomated(s, jid, text) {
+  const messageId = randomUUID(); markAutomated(s, messageId);
+  try { return await s.socket.sendMessage(jid, { text }, { messageId }); }
+  catch (e) { s.automatedMessageIds.delete(messageId); throw e; }
+}
 function botReply(text, store = {}, slug = '') {
   const w = store.whatsapp || {};
   if (w.botEnabled === false) return null;
@@ -78,7 +90,11 @@ async function incoming(slug, msg) {
   seen.add(seenId); if (seen.size > 2000) seen.delete(seen.values().next().value);
   const m = msg.message || {}; const text = m.conversation || m.extendedTextMessage?.text || m.imageMessage?.caption || m.videoMessage?.caption || '';
   if (!text.trim()) return;
-  try { const snap = await db.collection('stores').doc(slug).get(); const store = snap.data() || {}; const reply = botReply(text, store, slug); if (reply) await sessionFor(slug).socket?.sendMessage(jid, { text: reply }); }
+  try {
+    const s = sessionFor(slug);
+    if (s.pausedChats.has(jid)) { if (!isBotTrigger(text)) return; s.pausedChats.delete(jid); }
+    const snap = await db.collection('stores').doc(slug).get(); const store = snap.data() || {}; const reply = botReply(text, store, slug); if (reply) await sendAutomated(s, jid, reply);
+  }
   catch (e) { logger.error({ err: e, slug }, 'Falha ao responder'); }
 }
 async function start(slug) {
@@ -98,7 +114,18 @@ async function start(slug) {
         else if (status === 0) { clearTimeout(pending.timer); s.pendingMessages.delete(id); pending.reject(new Error('O WhatsApp recusou a mensagem. Confira se o número do motoboy está correto e se a sessão segue conectada.')); }
       }
     });
-    sock.ev.on('messages.upsert', ({ messages, type }) => { if (type === 'notify') messages.forEach((m) => void incoming(slug, m)); });
+    sock.ev.on('messages.upsert', ({ messages, type }) => {
+      if (type !== 'notify') return;
+      for (const m of messages) {
+        const jid = m.key?.remoteJid;
+        if (m.key?.fromMe) {
+          if (s.automatedMessageIds.delete(m.key.id)) continue;
+          if (jid && jid !== 'status@broadcast' && !jid.endsWith('@g.us')) s.pausedChats.add(jid);
+          continue;
+        }
+        void incoming(slug, m);
+      }
+    });
     sock.ev.on('connection.update', (u) => {
       if (s.generation !== generation) return;
       if (u.qr) { s.qr = u.qr; s.state = 'qr'; }
@@ -113,6 +140,7 @@ async function send(slug, jid, text) {
   const s = sessionFor(slug);
   if (s.state !== 'connected' || !s.socket) { const e = new Error('WhatsApp da loja não está conectado.'); e.status = 503; throw e; }
   const messageId = randomUUID();
+  markAutomated(s, messageId);
   const delivered = new Promise((resolve, reject) => {
     const timer = setTimeout(() => { s.pendingMessages.delete(messageId); const e = new Error('O WhatsApp aceitou o envio, mas não confirmou a entrega em 20 segundos. Verifique a sessão e se o destinatário já conversou com a loja.'); e.status = 504; reject(e); }, 20_000);
     s.pendingMessages.set(messageId, { resolve, reject, timer });
@@ -121,6 +149,7 @@ async function send(slug, jid, text) {
     await s.socket.sendMessage(jid, { text }, { messageId });
     await delivered;
   } catch (e) {
+    s.automatedMessageIds.delete(messageId);
     const pending = s.pendingMessages.get(messageId);
     if (pending) { clearTimeout(pending.timer); s.pendingMessages.delete(messageId); }
     throw e;
