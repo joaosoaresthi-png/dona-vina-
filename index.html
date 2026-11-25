@@ -2301,22 +2301,27 @@
       } catch (e) { /* estado indisponível até o serviço Railway responder */ }
     }
     async function pollWaBridgeStatus(base, token) {
+      let lastState = null;
       for (let i = 0; i < 30; i++) {
         await new Promise(resolve => setTimeout(resolve, 2000));
         try {
           const resp = await fetch(`${base}/api/stores/${encodeURIComponent(currentSlug)}/whatsapp/status`, { headers: { "Authorization": `Bearer ${token}` } });
           const data = await resp.json();
           if (!resp.ok) throw new Error(data.error || "Falha ao consultar conexão.");
+          lastState = data;
           updateWaConnectionStatus(data.state);
           const box = document.getElementById("wa-qr-box");
           if (data.state === "connected") { box.innerHTML = "<strong style='color:#15803D;'>WhatsApp conectado com sucesso.</strong>"; return; }
           if (data.qr) {
             box.innerHTML = '<div id="cloud-qr-target" style="background:#fff;padding:12px;border-radius:12px;"></div><p style="font-size:0.8rem;font-weight:700;color:#15803D;margin-top:8px;">Escaneie em WhatsApp &gt; Aparelhos conectados</p>';
             new QRCode(document.getElementById("cloud-qr-target"), { text: data.qr, width: 190, height: 190 });
+            return;
           }
-          if (data.state === "disconnected" || data.state === "logged_out" || data.state === "error") { box.insertAdjacentHTML("beforeend", "<p>Conexão encerrada. Gere um novo QR Code.</p>"); return; }
-        } catch (e) { return; }
+          if (data.state === "logged_out" || data.state === "error") { box.innerHTML = `<p>${data.error || "Sessão encerrada. Gere um novo QR Code."}</p>`; return; }
+        } catch (e) { document.getElementById("wa-qr-box").innerHTML = `<p>${e.message}</p>`; return; }
       }
+      const box = document.getElementById("wa-qr-box");
+      box.innerHTML = `<p>${lastState?.error || "O WhatsApp não forneceu um QR Code em 60 segundos. Tente novamente e confira os logs do Railway."}</p>`;
     }
     async function generateCloudPairingQR() {
       if (document.getElementById("wa-provider").value === "railway_bridge") {
