@@ -805,8 +805,6 @@
               <div class="form-group"><label class="form-label">Subtítulo</label><input type="text" id="set-subtitle" class="form-input" /></div>
               <div class="form-group"><label class="form-label">WhatsApp da Loja (com DDD)</label><input type="text" id="set-phone" class="form-input" required /></div>
               <div class="form-group"><label class="form-label">Chave Pix</label><input type="text" id="set-pix" class="form-input" /></div>
-              <div class="form-group"><label class="form-label">Taxa de Entrega (R$)</label><input type="number" step="0.5" id="set-fee" class="form-input" /></div>
-              <div class="form-group"><label class="form-label">Frete Grátis Acima de (R$)</label><input type="number" step="1" id="set-free-above" class="form-input" /></div>
               <div class="form-group"><label class="form-label">Tempo Entrega (ex: 35-50 min)</label><input type="text" id="set-eta" class="form-input" /></div>
               <div class="form-group"><label class="form-label">Tempo Retirada (ex: 25 min)</label><input type="text" id="set-pickup-eta" class="form-input" placeholder="25 min" /></div>
               <div class="form-group"><label class="form-label">Cor Principal</label><input type="color" id="set-color" class="form-input" style="height:42px;padding:4px;" /></div>
@@ -2503,7 +2501,6 @@
       document.getElementById("set-banner-preview").src = s.banner; document.getElementById("set-banner-url").value = s.banner;
       document.getElementById("set-name").value = s.name; document.getElementById("set-subtitle").value = s.subtitle;
       document.getElementById("set-phone").value = s.phone; document.getElementById("set-pix").value = s.pixKey;
-      document.getElementById("set-fee").value = s.deliveryFee; document.getElementById("set-free-above").value = s.freeDeliveryAbove;
       document.getElementById("set-eta").value = s.eta; document.getElementById("set-pickup-eta").value = s.pickupEta || "25 min";
       document.getElementById("set-color").value = s.primaryColor;
       document.getElementById("set-address").value = s.address; document.getElementById("set-hours").value = s.hours;
@@ -2515,7 +2512,6 @@
       s.banner = document.getElementById("set-banner-url").value.trim() || s.banner;
       s.name = document.getElementById("set-name").value.trim(); s.subtitle = document.getElementById("set-subtitle").value.trim();
       s.phone = document.getElementById("set-phone").value.trim(); s.pixKey = document.getElementById("set-pix").value.trim();
-      s.deliveryFee = parseFloat(document.getElementById("set-fee").value || 0); s.freeDeliveryAbove = parseFloat(document.getElementById("set-free-above").value || 0);
       s.eta = document.getElementById("set-eta").value.trim(); s.pickupEta = document.getElementById("set-pickup-eta").value.trim() || "25 min";
       s.primaryColor = document.getElementById("set-color").value;
       s.address = document.getElementById("set-address").value.trim(); s.hours = document.getElementById("set-hours").value.trim();
