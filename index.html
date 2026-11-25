@@ -1225,6 +1225,31 @@
       }).filter(g => g.options.length > 0);
     }
 
+    function normalizeCategoryKey(value) {
+      return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().replace(/\s+/g, " ").toLowerCase();
+    }
+
+    function normalizeStoreMenu(store) {
+      const categories = (Array.isArray(store.categories) ? store.categories : []).map((category, index) => {
+        const name = String(category.name || category.title || category.label || "").trim();
+        const slug = normalizeCategoryKey(name).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || `categoria-${index + 1}`;
+        return { ...category, id: category.id || `cat-${slug}`, name };
+      });
+      const byId = new Map(categories.map(category => [String(category.id), category]));
+      const byName = new Map(categories.map(category => [normalizeCategoryKey(category.name), category]));
+      const products = (Array.isArray(store.products) ? store.products : []).map(product => {
+        const category = byId.get(String(product.categoryId || "")) || byName.get(normalizeCategoryKey(product.category || product.categoryName || product.categoryId));
+        return {
+          ...product,
+          categoryId: category?.id || product.categoryId || "",
+          desc: product.desc ?? product.description ?? "",
+          available: product.available !== false,
+          optionGroups: normalizeProductOptionGroups(product)
+        };
+      });
+      return { ...store, categories, products };
+    }
+
     function buildFormattedAddress(prefix) {
       const street = (document.getElementById(`${prefix}-addr-street`)?.value || "").trim();
       const number = (document.getElementById(`${prefix}-addr-number`)?.value || "").trim();
@@ -1331,24 +1356,24 @@
         if (parsed.logo) currentStore.logo = parsed.logo;
         if (parsed.banner) currentStore.banner = parsed.banner;
 
-        const normalizedProducts = parsed.products.map((p, idx) => ({
-          ...p,
-          id: p.id || `prod-imp-${Date.now()}-${idx}`,
-          available: p.available !== false,
-          optionGroups: normalizeProductOptionGroups(p)
-        }));
+        const importedMenu = normalizeStoreMenu({
+          categories: parsed.categories,
+          products: parsed.products.map((p, idx) => ({ ...p, id: p.id || `prod-imp-${Date.now()}-${idx}` }))
+        });
 
         if (replace) {
-          currentStore.categories = parsed.categories;
-          currentStore.products = normalizedProducts;
+          currentStore.categories = importedMenu.categories;
+          currentStore.products = importedMenu.products;
         } else {
-          currentStore.categories = [...(currentStore.categories || []), ...parsed.categories];
-          currentStore.products = [...(currentStore.products || []), ...normalizedProducts];
+          const existingMenu = normalizeStoreMenu(currentStore);
+          currentStore.categories = [...existingMenu.categories, ...importedMenu.categories];
+          currentStore.products = [...existingMenu.products, ...importedMenu.products];
         }
+        currentStore = normalizeStoreMenu(currentStore);
         await persistStoreData();
         closeImportMenuModal();
         initAdminDashboard();
-        showToast(`Cardápio importado (${normalizedProducts.length} produtos)!`, "success");
+        showToast(`Cardápio importado (${importedMenu.products.length} produtos)!`, "success");
       } catch (err) {
         showToast("Erro no formato JSON: " + err.message, "error");
       }
@@ -1368,7 +1393,7 @@
             return;
           }
         } else {
-          currentStore = { slug, ...snap.data() };
+          currentStore = normalizeStoreMenu({ slug, ...snap.data() });
         }
         applyBrandTheme();
 
@@ -2613,27 +2638,4 @@
       syncUrlSlug(slug, true);
       attachStoreRealtimeListeners(slug, true);
       switchAdminTab("orders");
-      showToast(`Gerenciando: ${slug}`, "success");
-    }
-
-    Object.assign(window, {
-      switchView, enterStoreCatalog, openTrackOrdersModal, closeTrackOrdersModal, searchCustomerOrdersByPhone,
-      openStoreInfoModal, renderCustomerMenu, selectCustomerCat, openProductModal, closeProductModal, changeModalQty, handleModalOptionChange, recalcModalPrice, confirmAddModalItem,
-      openCartDrawer, closeCartDrawer, applyCartCoupon, setCartDeliveryMode, toggleCustPaymentInfo, removeCustomerCartItem, finalizeCustomerOrder,
-      handleAdminLogin, fillDemoLogin, handleAdminLogout, switchAdminTab, openStorePublicLink, copyCurrentStoreUrl, toggleStoreOpen, setOrderFilter,
-      advanceOrderStatus, openOrderDetailModal, closeOrderDetailModal, printOrderReceipt, renderPdvCatalog, selectPdvCategory, handlePdvItemClick, removePdvCartItem, clearPdvCart,
-      switchPdvView, addMotoboy, removeMotoboy, renderPdvLogistics, saveOrderCourier, sendRiderRoute,
-      autoFillPdvCustomer, togglePdvDeliveryFields, togglePdvChangeField, renderPdvCart, submitPdvOrder, openProductEditor, closeProductEditor,
-      handleProductImageUpload, addEditorOptionGroup, renderEditorGroups, saveProductFromEditor, toggleProductAvail, deleteProduct, addCategory,
-      deleteCategory, addCoupon, deleteCoupon, saveWaSettings, connectRailwayWhatsApp, copyTag, clearSimChat, sendSimMessage,
-      handleStoreImageUpload, saveStoreSettings, exportBackupJSON, autoSlugifySaas, createSaasTenant, copyTenantLink, toggleTenantStatus, manageTenantAsMaster,
-      openEditTenantModal, closeEditTenantModal, saveTenantEdit, deleteSaasTenant,
-      openImportMenuModal, closeImportMenuModal, processImportMenuJson
-    });
-
-    const nextMonth = new Date(); nextMonth.setDate(nextMonth.getDate() + 30);
-    document.getElementById("saas-expires-at").value = nextMonth.toISOString().split("T")[0];
-    bootApp();
-  </script>
-</body>
-</html>
+      showToast(`Gerenciando: ${slug}
