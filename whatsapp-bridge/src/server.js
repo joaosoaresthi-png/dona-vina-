@@ -56,19 +56,20 @@ function botReply(text, store = {}, slug = '') {
   const greeting = () => `${w.botWelcome || `Olá! 😊 Bem-vindo(a) à ${name}.`}\n\nComo posso ajudar? Responda com uma opção:\n1️⃣ Ver cardápio / fazer pedido\n2️⃣ Horário e endereço\n3️⃣ Pagamento / Pix\n4️⃣ Falar com a equipe`;
   if (/^(1|1️⃣)$/.test(t) || /\b(cardapio|menu|produtos|fazer pedido|pedir|pedido)\b/.test(t)) return menu();
   if (/^(2|2️⃣)$/.test(t) || /\b(horario|funcionamento|endereco|localizacao|onde fica)\b/.test(t)) {
-    const hours = store.hours || w.botHours || 'Consulte o horário diretamente com a equipe.';
-    const address = store.address ? `\n📍 Endereço: ${store.address}` : '';
+    const hours = w.botHours || store.hours || 'Consulte o horário diretamente com a equipe.';
+    const addressValue = w.botAddress || store.address;
+    const address = addressValue ? `\n📍 Endereço: ${addressValue}` : '';
     return `🕒 Funcionamento: ${hours}${address}`;
   }
   if (/^(3|3️⃣)$/.test(t) || /\b(pix|pagamento|pagar)\b/.test(t)) {
-    if (store.pixKey) return `💳 Pix: ${store.pixKey}\n\nSe precisar, responda 4 para falar com a equipe.`;
-    return w.botPix || 'A chave Pix ainda não foi cadastrada. Responda 4 para falar com a equipe.';
+    if (store.pixKey) return (w.botPix || '💳 Pix: {pix}\n\nEnvie o comprovante por aqui!').replace(/\{pix\}|12\.345\.678\/0001-99/g, store.pixKey);
+    return (w.botPix || 'A chave Pix ainda não foi cadastrada. Responda 4 para falar com a equipe.').replace(/[^\n]*\{pix\}[^\n]*/g, 'A chave Pix ainda não foi cadastrada. Responda 4 para falar com a equipe.');
   }
   if (/^(4|4️⃣)$/.test(t) || /\b(atendente|equipe|pessoa|humano|falar com alguem)\b/.test(t)) {
-    return `👋 Certo! A equipe de ${name} pode continuar esta conversa por aqui. Escreva sua dúvida ou o que deseja pedir.`;
+    return w.botHandoff || `👋 Certo! A equipe de ${name} pode continuar esta conversa por aqui. Escreva sua dúvida ou o que deseja pedir.`;
   }
   if (/\b(oi|ola|bom dia|boa tarde|boa noite|ajuda|inicio|comecar)\b/.test(t) || !t) return greeting();
-  return 'Não entendi essa opção. 😊\n\nResponda 1 para ver o cardápio, 2 para horário/endereço, 3 para Pix ou 4 para falar com a equipe.';
+  return w.botFallback || 'Não entendi essa opção. 😊\n\nResponda 1 para ver o cardápio, 2 para horário/endereço, 3 para Pix ou 4 para falar com a equipe.';
 }
 async function incoming(slug, msg) {
   const id = msg.key?.id, jid = msg.key?.remoteJid;
@@ -162,7 +163,4 @@ app.post('/api/stores/:slug/orders/:orderId/confirmation', async (req, res) => {
 const server = app.listen(PORT, '0.0.0.0', async () => {
   await fs.mkdir(AUTH_DIR, { recursive: true }); logger.info({ port: PORT }, 'WhatsApp bridge online');
   const entries = await fs.readdir(AUTH_DIR, { withFileTypes: true }).catch(() => []);
-  for (const e of entries) if (e.isDirectory() && /^[a-z0-9-]{1,60}$/.test(e.name)) void start(e.name).catch((err) => logger.error({ err, slug: e.name }, 'Falha ao restaurar sessão'));
-});
-function shutdown() { server.close(); for (const s of sessions.values()) { clearTimeout(s.timer); s.socket?.end(undefined); } setTimeout(() => process.exit(0), 1000).unref(); }
-process.on('SIGTERM', shutdown); process.on('SIGINT', shutdown);
+  for 
