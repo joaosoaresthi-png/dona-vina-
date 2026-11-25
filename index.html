@@ -2638,4 +2638,27 @@
       syncUrlSlug(slug, true);
       attachStoreRealtimeListeners(slug, true);
       switchAdminTab("orders");
-      showToast(`Gerenciando: ${slug}
+      showToast(`Gerenciando: ${slug}`, "success");
+    }
+
+    Object.assign(window, {
+      switchView, enterStoreCatalog, openTrackOrdersModal, closeTrackOrdersModal, searchCustomerOrdersByPhone,
+      openStoreInfoModal, renderCustomerMenu, selectCustomerCat, openProductModal, closeProductModal, changeModalQty, handleModalOptionChange, recalcModalPrice, confirmAddModalItem,
+      openCartDrawer, closeCartDrawer, applyCartCoupon, setCartDeliveryMode, toggleCustPaymentInfo, removeCustomerCartItem, finalizeCustomerOrder,
+      handleAdminLogin, fillDemoLogin, handleAdminLogout, switchAdminTab, openStorePublicLink, copyCurrentStoreUrl, toggleStoreOpen, setOrderFilter,
+      advanceOrderStatus, openOrderDetailModal, closeOrderDetailModal, printOrderReceipt, renderPdvCatalog, selectPdvCategory, handlePdvItemClick, removePdvCartItem, clearPdvCart,
+      switchPdvView, addMotoboy, removeMotoboy, renderPdvLogistics, saveOrderCourier, sendRiderRoute,
+      autoFillPdvCustomer, togglePdvDeliveryFields, togglePdvChangeField, renderPdvCart, submitPdvOrder, openProductEditor, closeProductEditor,
+      handleProductImageUpload, addEditorOptionGroup, renderEditorGroups, saveProductFromEditor, toggleProductAvail, deleteProduct, addCategory,
+      deleteCategory, addCoupon, deleteCoupon, saveWaSettings, connectRailwayWhatsApp, copyTag, clearSimChat, sendSimMessage,
+      handleStoreImageUpload, saveStoreSettings, exportBackupJSON, autoSlugifySaas, createSaasTenant, copyTenantLink, toggleTenantStatus, manageTenantAsMaster,
+      openEditTenantModal, closeEditTenantModal, saveTenantEdit, deleteSaasTenant,
+      openImportMenuModal, closeImportMenuModal, processImportMenuJson
+    });
+
+    const nextMonth = new Date(); nextMonth.setDate(nextMonth.getDate() + 30);
+    document.getElementById("saas-expires-at").value = nextMonth.toISOString().split("T")[0];
+    bootApp();
+  </script>
+</body>
+</html>
