@@ -134,7 +134,7 @@ function orderText(tpl, order, store) {
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 app.get('/api/stores/:slug/whatsapp/status', authorize, (req, res) => res.json(stateOf(req.slug)));
-app.post('/api/stores/:slug/whatsapp/connect', authorize, async (req, res) => { try { await start(req.slug); res.json(stateOf(req.slug)); } catch (e) { res.status(500).json({ error: e.message, ...stateOf(req.slug) }); } });
+app.post('/api/stores/:slug/whatsapp/connect', authorize, async (req, res) => { try { const s = sessionFor(req.slug); if (s.state === 'logged_out') { await fs.rm(path.join(AUTH_DIR, req.slug), { recursive: true, force: true }); s.state = 'disconnected'; s.error = null; } await start(req.slug); res.json(stateOf(req.slug)); } catch (e) { res.status(500).json({ error: e.message, ...stateOf(req.slug) }); } });
 app.post('/api/stores/:slug/whatsapp/disconnect', authorize, async (req, res) => {
   const s = sessionFor(req.slug); clearTimeout(s.timer); s.generation++; try { await s.socket?.logout(); } catch {} s.socket?.end(undefined); s.socket = null; s.state = 'disconnected'; s.qr = null; s.phone = null; s.error = null;
   await fs.rm(path.join(AUTH_DIR, req.slug), { recursive: true, force: true }); res.json(stateOf(req.slug));
@@ -164,5 +164,4 @@ const server = app.listen(PORT, '0.0.0.0', async () => {
   const entries = await fs.readdir(AUTH_DIR, { withFileTypes: true }).catch(() => []);
   for (const e of entries) if (e.isDirectory() && /^[a-z0-9-]{1,60}$/.test(e.name)) void start(e.name).catch((err) => logger.error({ err, slug: e.name }, 'Falha ao restaurar sessão'));
 });
-function shutdown() { server.close(); for (const s of sessions.values()) { clearTimeout(s.timer); s.socket?.end(undefined); } setTimeout(() => process.exit(0), 1000).unref(); }
-process.on('SIGTERM', shutdown); process.on('SIGINT', shutdown);
+function shutdown() { server.close(); for (const s of se
