@@ -2627,4 +2627,13 @@
       handleProductImageUpload, addEditorOptionGroup, renderEditorGroups, saveProductFromEditor, toggleProductAvail, deleteProduct, addCategory,
       deleteCategory, addCoupon, deleteCoupon, saveWaSettings, connectRailwayWhatsApp, copyTag, clearSimChat, sendSimMessage,
       handleStoreImageUpload, saveStoreSettings, exportBackupJSON, autoSlugifySaas, createSaasTenant, copyTenantLink, toggleTenantStatus, manageTenantAsMaster,
-      openEditTenantModal, closeEditTenantModal
+      openEditTenantModal, closeEditTenantModal, saveTenantEdit, deleteSaasTenant,
+      openImportMenuModal, closeImportMenuModal, processImportMenuJson
+    });
+
+    const nextMonth = new Date(); nextMonth.setDate(nextMonth.getDate() + 30);
+    document.getElementById("saas-expires-at").value = nextMonth.toISOString().split("T")[0];
+    bootApp();
+  </script>
+</body>
+</html>
