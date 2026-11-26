@@ -322,25 +322,19 @@ app.post('/api/stores/:slug/whatsapp/send', authorize, async (req, res) => {
     res.status(e.status || 502).json({ error: e.message });
   }
 });
-app.delete('/api/stores/:slug/orders', authorize, async (req, res) => {
-  if (String(req.authUser?.email || '').toLowerCase() !== MASTER_EMAIL) return res.status(403).json({ error: 'Somente a conta Master pode apagar pedidos.' });
-  if (String(req.body?.confirmSlug || '') !== req.slug) return res.status(400).json({ error: 'Confirme o slug da loja para apagar os pedidos.' });
+app.delete('/api/stores/:slug/orders/:orderId', authorize, async (req, res) => {
+  const orderId = String(req.params.orderId || '');
+  if (!/^[A-Za-z0-9_-]{1,150}$/.test(orderId)) return res.status(400).json({ error: 'Identificador de pedido inválido.' });
   try {
-    const orders = db.collection('stores').doc(req.slug).collection('orders');
-    let deleted = 0;
-    while (true) {
-      const snapshot = await orders.limit(400).get();
-      if (snapshot.empty) break;
-      const batch = db.batch();
-      snapshot.docs.forEach((order) => batch.delete(order.ref));
-      await batch.commit();
-      deleted += snapshot.size;
-    }
-    logger.info({ slug: req.slug, deleted, email: req.authUser.email }, 'Pedidos de teste apagados pela conta Master');
-    res.json({ ok: true, deleted });
+    const ref = db.collection('stores').doc(req.slug).collection('orders').doc(orderId);
+    const snapshot = await ref.get();
+    if (!snapshot.exists) return res.status(404).json({ error: 'Pedido não encontrado.' });
+    await ref.delete();
+    logger.info({ slug: req.slug, orderId, email: req.authUser.email }, 'Pedido apagado pelo usuário autorizado da loja');
+    res.json({ ok: true, orderId });
   } catch (e) {
-    logger.error({ err: e, slug: req.slug }, 'Falha ao apagar pedidos da loja');
-    res.status(500).json({ error: 'Não foi possível apagar os pedidos desta loja.' });
+    logger.error({ err: e, slug: req.slug, orderId }, 'Falha ao apagar pedido');
+    res.status(500).json({ error: 'Não foi possível apagar este pedido.' });
   }
 });
 // Checkout público: só envia para pedido existente e registra uma confirmação por pedido.
