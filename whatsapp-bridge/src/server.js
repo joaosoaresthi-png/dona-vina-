@@ -1,10 +1,11 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { randomUUID } from 'node:crypto';
 import express from 'express';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import admin from 'firebase-admin';
-import makeWASocket, { Browsers, DisconnectReason, generateMessageIDV2, useMultiFileAuthState } from '@whiskeysockets/baileys';
+import makeWASocket, { Browsers, DisconnectReason, useMultiFileAuthState } from '@whiskeysockets/baileys';
 import pino from 'pino';
 
 const PORT = Number(process.env.PORT || 3000);
@@ -70,12 +71,6 @@ function watchSendFailure(s, messageId, slug) {
 }
 async function sendAutomated(slug, s, jid, text) {
   return send(slug, jid, text);
-}
-async function resolveRecipientJid(s, jid) {
-  if (!jid.endsWith('@s.whatsapp.net')) return jid;
-  const mapping = s.socket?.signalRepository?.lidMapping;
-  const lid = await mapping?.getLIDForPN(jid);
-  return typeof lid === 'string' && lid.endsWith('@lid') ? lid : jid;
 }
 function botReply(text, store = {}, slug = '') {
   const w = store.whatsapp || {};
@@ -164,12 +159,12 @@ async function start(slug) {
 async function send(slug, jid, text) {
   const s = sessionFor(slug);
   if (s.state !== 'connected' || !s.socket) { const e = new Error('WhatsApp da loja não está conectado.'); e.status = 503; throw e; }
-  const messageId = generateMessageIDV2(s.socket.user?.id);
+  // Keep the direct phone JID used by the deployment that successfully delivered rider routes.
+  const messageId = randomUUID();
   markAutomated(s, messageId);
   const failureWatch = watchSendFailure(s, messageId, slug);
   try {
-    const recipientJid = await resolveRecipientJid(s, jid);
-    const sent = await s.socket.sendMessage(recipientJid, { text }, { messageId });
+    const sent = await s.socket.sendMessage(jid, { text }, { messageId });
     if (!sent?.key?.id) throw new Error('O WhatsApp não retornou a confirmação de aceite do envio.');
     const sendError = await failureWatch.promise;
     if (sendError) throw sendError;
