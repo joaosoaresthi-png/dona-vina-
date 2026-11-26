@@ -2246,9 +2246,13 @@
     async function sendRiderRoute(key) {
       const order = currentOrders.find(o => (o.firestoreId || o.id) === key);
       if (!order) return;
-      const rider = (currentStore.motoboys || []).find(r => r.id === order.motoboyId) || (order.motoboyPhone ? { name: order.motoboyName, phone: order.motoboyPhone } : null);
+      const selectedRiderId = document.getElementById(`courier-${key}`)?.value || order.motoboyId;
+      const rider = (currentStore.motoboys || []).find(r => r.id === selectedRiderId) || (order.motoboyPhone ? { name: order.motoboyName, phone: order.motoboyPhone } : null);
       if (!rider) { showToast("Escolha um motoboy antes de enviar a rota.", "warning"); return; }
       if (!order.address || order.address === "Retirada no Balcão") { showToast("Este pedido não tem endereço de entrega.", "warning"); return; }
+      const riderFields = { motoboyId: rider.id, motoboyName: rider.name, motoboyPhone: rider.phone };
+      Object.assign(order, riderFields);
+      if (order.firestoreId) await updateDoc(doc(db, "stores", currentSlug, "orders", order.firestoreId), riderFields);
       const origin = `${currentStore.address || ""}${currentStore.storeCep ? `, CEP ${formatCep(currentStore.storeCep)}` : ""}`;
       const route = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(order.address)}&travelmode=driving`;
       const items = (order.items || []).map(i => `${i.qty}× ${i.name}`).join(", ");
@@ -2336,10 +2340,10 @@
 
     function orderStatusTemplate(status) {
       const templates = {
-        preparo: currentStore.whatsapp?.tplPreparo,
+        preparo: currentStore.whatsapp?.tplPreparo || "Olá {cliente}! Seu pedido {pedido} foi aceito e já está em preparo. 🍳",
         pronto: currentStore.whatsapp?.tplPronto || "Olá {cliente}! Seu pedido {pedido} está pronto para sair. 🍔",
-        entrega: currentStore.whatsapp?.tplEntrega,
-        concluido: currentStore.whatsapp?.tplConcluido
+        entrega: currentStore.whatsapp?.tplEntrega || "Olá {cliente}! Seu pedido {pedido} saiu para entrega. 🛵",
+        concluido: currentStore.whatsapp?.tplConcluido || "Olá {cliente}! Seu pedido {pedido} foi concluído. Obrigado por pedir com a gente! 😊"
       };
       return templates[status] || "";
     }

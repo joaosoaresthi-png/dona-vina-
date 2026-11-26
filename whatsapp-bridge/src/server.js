@@ -1,10 +1,11 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { randomUUID } from 'node:crypto';
 import express from 'express';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import admin from 'firebase-admin';
-import makeWASocket, { Browsers, DisconnectReason, generateMessageIDV2, useMultiFileAuthState } from '@whiskeysockets/baileys';
+import makeWASocket, { Browsers, DisconnectReason, useMultiFileAuthState } from '@whiskeysockets/baileys';
 import pino from 'pino';
 
 const PORT = Number(process.env.PORT || 3000);
@@ -77,16 +78,6 @@ function watchSendResult(s, messageId, slug) {
     addId(id) { if (id && !ids.has(id)) { ids.add(id); s.pendingMessages.set(id, pending); } },
     cancel(error) { pending.finish(error || new Error('Envio cancelado.')); }
   };
-}
-async function recipientJid(s, jid) {
-  if (!jid.endsWith('@s.whatsapp.net')) return jid;
-  try {
-    const lid = await s.socket?.signalRepository?.lidMapping?.getLIDForPN(jid);
-    if (typeof lid === 'string' && lid.endsWith('@lid')) return lid;
-  } catch (err) {
-    logger.warn({ err }, 'Could not resolve WhatsApp phone JID to LID; using phone JID');
-  }
-  return jid;
 }
 async function sendAutomated(slug, s, jid, text) {
   return send(slug, jid, text);
@@ -185,12 +176,12 @@ async function start(slug) {
 async function send(slug, jid, text) {
   const s = sessionFor(slug);
   if (s.state !== 'connected' || !s.socket) { const e = new Error('WhatsApp da loja não está conectado.'); e.status = 503; throw e; }
-  const target = await recipientJid(s, jid);
-  const messageId = generateMessageIDV2(s.socket.user?.id);
+  // Keep the direct phone JID and UUID path from the deployment that delivered rider routes.
+  const messageId = randomUUID();
   markAutomated(s, messageId);
   const delivery = watchSendResult(s, messageId, slug);
   try {
-    const sent = await s.socket.sendMessage(target, { text }, { messageId });
+    const sent = await s.socket.sendMessage(jid, { text }, { messageId });
     if (!sent?.key?.id) throw new Error('O WhatsApp não retornou a confirmação de aceite do envio.');
     delivery.addId(sent.key.id);
     markAutomated(s, sent.key.id);
