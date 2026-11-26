@@ -2612,7 +2612,7 @@
           });
           const data = await resp.json().catch(() => ({}));
           if (!resp.ok) throw new Error(data.error || "Falha ao enviar mensagem.");
-          if (!silent) showToast(data.deliveryConfirmed === true ? `WhatsApp confirmou a entrega para ${phone}.` : `O WhatsApp aceitou o envio para ${phone}, mas não confirmou a entrega. Confira com o destinatário.`, data.deliveryConfirmed === true ? "success" : "warning");
+          if (!silent) showToast("Envio aceito pelo WhatsApp. A integração não fornece confirmação de entrega.", "success");
           return data;
         } catch (e) { if (!silent) showToast(e.message, "error"); return { ok: false, error: e.message }; }
       }
