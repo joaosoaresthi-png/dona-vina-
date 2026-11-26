@@ -1,11 +1,10 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { randomUUID } from 'node:crypto';
 import express from 'express';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import admin from 'firebase-admin';
-import makeWASocket, { Browsers, DisconnectReason, useMultiFileAuthState } from '@whiskeysockets/baileys';
+import makeWASocket, { Browsers, DisconnectReason, generateMessageIDV2, useMultiFileAuthState } from '@whiskeysockets/baileys';
 import pino from 'pino';
 
 const PORT = Number(process.env.PORT || 3000);
@@ -48,26 +47,46 @@ function isBotTrigger(text) {
     /\b(cardapio|menu|produtos|fazer pedido|pedir|pedido|pix|pagamento|pagar|horario|funcionamento|endereco|localizacao|onde fica|atendente|equipe|pessoa|humano|falar com alguem|oi|ola|bom dia|boa tarde|boa noite|ajuda|inicio|comecar)\b/.test(t);
 }
 function markAutomated(s, id) { s.automatedMessageIds.add(id); const timer = setTimeout(() => s.automatedMessageIds.delete(id), 60_000); timer.unref(); }
-function watchSendFailure(s, messageId, slug) {
-  let finish, settled = false, timer, cleanupTimer;
-  const promise = new Promise((resolve) => {
-    finish = (error) => {
-      clearTimeout(timer);
-      clearTimeout(cleanupTimer);
-      s.pendingMessages.delete(messageId);
-      if (!settled) { settled = true; resolve(error); }
-    };
-    s.pendingMessages.set(messageId, { finish, slug });
-    timer = setTimeout(() => {
+function failPending(s, error) {
+  for (const pending of new Set(s.pendingMessages.values())) pending.finish(error);
+}
+function watchSendResult(s, messageId, slug) {
+  let settled = false, timer;
+  const ids = new Set([messageId]);
+  let pending;
+  const promise = new Promise((resolve, reject) => {
+    const finish = (error, result) => {
+      if (settled) return;
       settled = true;
-      resolve(null);
-      // Keep listening for a late rejection after the HTTP response has returned.
-      cleanupTimer = setTimeout(() => s.pendingMessages.delete(messageId), 57_000);
-      cleanupTimer.unref();
-    }, 3000);
+      clearTimeout(timer);
+      for (const id of ids) if (s.pendingMessages.get(id) === pending) s.pendingMessages.delete(id);
+      if (error) reject(error); else resolve(result);
+    };
+    pending = { slug, finish };
+    s.pendingMessages.set(messageId, pending);
+    timer = setTimeout(() => {
+      const error = new Error('O WhatsApp não confirmou a entrega em 20 segundos. Verifique se a sessão continua conectada e tente reenviar.');
+      error.status = 504;
+      finish(error);
+    }, 20_000);
     timer.unref();
   });
-  return { promise, cancel: () => finish(null) };
+  promise.catch(() => {});
+  return {
+    promise,
+    addId(id) { if (id && !ids.has(id)) { ids.add(id); s.pendingMessages.set(id, pending); } },
+    cancel(error) { pending.finish(error || new Error('Envio cancelado.')); }
+  };
+}
+async function recipientJid(s, jid) {
+  if (!jid.endsWith('@s.whatsapp.net')) return jid;
+  try {
+    const lid = await s.socket?.signalRepository?.lidMapping?.getLIDForPN(jid);
+    if (typeof lid === 'string' && lid.endsWith('@lid')) return lid;
+  } catch (err) {
+    logger.warn({ err }, 'Could not resolve WhatsApp phone JID to LID; using phone JID');
+  }
+  return jid;
 }
 async function sendAutomated(slug, s, jid, text) {
   return send(slug, jid, text);
@@ -126,11 +145,18 @@ async function start(slug) {
     sock.ev.on('messages.update', (updates) => {
       for (const { key, update } of updates) {
         const pending = key?.id && s.pendingMessages.get(key.id);
-        if (!pending || update?.status !== 0) continue;
+        if (!pending) continue;
+        const status = Number(update?.status);
+        if ([3, 4, 5].includes(status)) {
+          logger.info({ slug: pending.slug, messageId: key.id, status }, 'WhatsApp confirmed message delivery');
+          pending.finish(null, { deliveryConfirmed: true, deliveryStatus: status >= 4 ? 'read' : 'delivered' });
+          continue;
+        }
+        if (status !== 0) continue;
         const code = update.messageStubParameters?.find((value) => /^\d+$/.test(String(value)));
         logger.warn({ slug: pending.slug, messageId: key.id, code: code || 'unknown' }, 'WhatsApp rejected an outgoing message');
         pending.finish(new Error(code === '463'
-          ? 'O WhatsApp bloqueou temporariamente este envio (código 463). O bridge aceitou a solicitação, mas o WhatsApp recusou a mensagem.'
+          ? 'O WhatsApp recusou o envio (código 463). Confira se o destinatário está acessível pela sessão e tente novamente.'
           : `O WhatsApp recusou a mensagem${code ? ` (código ${code})` : ''}.`));
       }
     });
@@ -150,7 +176,7 @@ async function start(slug) {
       if (s.generation !== generation) return;
       if (u.qr) { s.qr = u.qr; s.state = 'qr'; }
       if (u.connection === 'open') { s.state = 'connected'; s.qr = null; s.error = null; s.phone = sock.user?.id?.split(':')[0] || null; }
-      if (u.connection === 'close') { const loggedOut = u.lastDisconnect?.error?.output?.statusCode === DisconnectReason.loggedOut; s.state = loggedOut ? 'logged_out' : 'disconnected'; s.socket = null; s.qr = null; s.phone = null; s.error = loggedOut ? 'WhatsApp desconectado; gere outro QR.' : 'Conexão caiu; tentando reconectar.'; if (!loggedOut) { clearTimeout(s.timer); s.timer = setTimeout(() => void start(slug), 3000); } }
+      if (u.connection === 'close') { const loggedOut = u.lastDisconnect?.error?.output?.statusCode === DisconnectReason.loggedOut; failPending(s, new Error(loggedOut ? 'A sessão do WhatsApp foi removida. Gere e leia um novo QR Code.' : 'A conexão do WhatsApp caiu durante o envio.')); s.state = loggedOut ? 'logged_out' : 'disconnected'; s.socket = null; s.qr = null; s.phone = null; s.error = loggedOut ? 'WhatsApp desconectado; gere outro QR.' : 'Conexão caiu; tentando reconectar.'; if (!loggedOut) { clearTimeout(s.timer); s.timer = setTimeout(() => void start(slug), 3000); } }
     });
     return s;
   })().catch((e) => { s.state = 'error'; s.error = e.message; throw e; }).finally(() => { s.starting = null; });
@@ -159,18 +185,19 @@ async function start(slug) {
 async function send(slug, jid, text) {
   const s = sessionFor(slug);
   if (s.state !== 'connected' || !s.socket) { const e = new Error('WhatsApp da loja não está conectado.'); e.status = 503; throw e; }
-  // Keep the direct phone JID used by the deployment that successfully delivered rider routes.
-  const messageId = randomUUID();
+  const target = await recipientJid(s, jid);
+  const messageId = generateMessageIDV2(s.socket.user?.id);
   markAutomated(s, messageId);
-  const failureWatch = watchSendFailure(s, messageId, slug);
+  const delivery = watchSendResult(s, messageId, slug);
   try {
-    const sent = await s.socket.sendMessage(jid, { text }, { messageId });
+    const sent = await s.socket.sendMessage(target, { text }, { messageId });
     if (!sent?.key?.id) throw new Error('O WhatsApp não retornou a confirmação de aceite do envio.');
-    const sendError = await failureWatch.promise;
-    if (sendError) throw sendError;
-    return { accepted: true, deliveryConfirmed: null };
+    delivery.addId(sent.key.id);
+    markAutomated(s, sent.key.id);
+    const result = await delivery.promise;
+    return { accepted: true, ...result };
   } catch (e) {
-    failureWatch.cancel();
+    delivery.cancel(e);
     s.automatedMessageIds.delete(messageId);
     throw e;
   }
@@ -205,7 +232,7 @@ app.post('/api/stores/:slug/orders/:orderId/confirmation', async (req, res) => {
   try {
     const store = (await db.collection('stores').doc(slug).get()).data(); const phone = phoneDigits(order.customerPhone); if (!phone) throw new Error('Pedido sem WhatsApp válido.');
     const result = await send(slug, phone + '@s.whatsapp.net', orderText(store.whatsapp?.tplConfirmacao, order, store));
-    await ref.update({ whatsappConfirmationStatus: 'accepted', whatsappConfirmationDeliveryConfirmed: null, whatsappConfirmationSentAt: admin.firestore.FieldValue.serverTimestamp() }); res.json({ ok: true, ...result });
+    await ref.update({ whatsappConfirmationStatus: 'accepted', whatsappConfirmationDeliveryConfirmed: result.deliveryConfirmed, whatsappConfirmationDeliveryStatus: result.deliveryStatus, whatsappConfirmationSentAt: admin.firestore.FieldValue.serverTimestamp() }); res.json({ ok: true, ...result });
   } catch (e) { await ref.update({ whatsappConfirmationStatus: 'failed', whatsappConfirmationError: String(e.message).slice(0,180) }).catch(() => {}); res.status(e.status || 502).json({ error: e.message }); }
 });
 
