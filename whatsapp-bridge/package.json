@@ -10,6 +10,7 @@
     "express": "^5.1.0",
     "express-rate-limit": "^8.1.0",
     "firebase-admin": "^12.0.0",
+    "link-preview-js": "^3.0.0",
     "pino": "^9.6.0"
   }
 }

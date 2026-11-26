@@ -26,7 +26,7 @@ app.use(rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: true, legacyH
 
 function slugOf(value) { const slug = String(value || '').toLowerCase(); if (!/^[a-z0-9](?:[a-z0-9-]{0,58}[a-z0-9])?$/.test(slug)) { const e = new Error('Slug inválido.'); e.status = 400; throw e; } return slug; }
 // shortcut: pauses live in memory and reset on Railway restart; persist per chat if pauses must survive redeploys.
-function sessionFor(slug) { if (!sessions.has(slug)) sessions.set(slug, { state: 'disconnected', qr: null, phone: null, error: null, socket: null, starting: null, timer: null, generation: 0, automatedMessageIds: new Set(), pausedChats: new Set() }); return sessions.get(slug); }
+function sessionFor(slug) { if (!sessions.has(slug)) sessions.set(slug, { state: 'disconnected', qr: null, phone: null, error: null, socket: null, starting: null, timer: null, generation: 0, automatedMessageIds: new Set(), pendingMessages: new Map(), pausedChats: new Set() }); return sessions.get(slug); }
 function stateOf(slug) { const s = sessionFor(slug); return { store: slug, state: s.state, qr: s.qr, phone: s.phone, error: s.error }; }
 async function authorize(req, res, next) {
   try {
@@ -47,10 +47,29 @@ function isBotTrigger(text) {
     /\b(cardapio|menu|produtos|fazer pedido|pedir|pedido|pix|pagamento|pagar|horario|funcionamento|endereco|localizacao|onde fica|atendente|equipe|pessoa|humano|falar com alguem|oi|ola|bom dia|boa tarde|boa noite|ajuda|inicio|comecar)\b/.test(t);
 }
 function markAutomated(s, id) { s.automatedMessageIds.add(id); const timer = setTimeout(() => s.automatedMessageIds.delete(id), 60_000); timer.unref(); }
-async function sendAutomated(s, jid, text) {
-  const messageId = generateMessageIDV2(s.socket.user?.id); markAutomated(s, messageId);
-  try { return await s.socket.sendMessage(jid, { text }, { messageId }); }
-  catch (e) { s.automatedMessageIds.delete(messageId); throw e; }
+function watchSendFailure(s, messageId, slug) {
+  let finish, settled = false, timer, cleanupTimer;
+  const promise = new Promise((resolve) => {
+    finish = (error) => {
+      clearTimeout(timer);
+      clearTimeout(cleanupTimer);
+      s.pendingMessages.delete(messageId);
+      if (!settled) { settled = true; resolve(error); }
+    };
+    s.pendingMessages.set(messageId, { finish, slug });
+    timer = setTimeout(() => {
+      settled = true;
+      resolve(null);
+      // Keep listening for a late rejection after the HTTP response has returned.
+      cleanupTimer = setTimeout(() => s.pendingMessages.delete(messageId), 57_000);
+      cleanupTimer.unref();
+    }, 3000);
+    timer.unref();
+  });
+  return { promise, cancel: () => finish(null) };
+}
+async function sendAutomated(slug, s, jid, text) {
+  return send(slug, jid, text);
 }
 async function resolveRecipientJid(s, jid) {
   if (!jid.endsWith('@s.whatsapp.net')) return jid;
@@ -97,7 +116,7 @@ async function incoming(slug, msg) {
   try {
     const s = sessionFor(slug);
     if (s.pausedChats.has(jid)) { if (!isBotTrigger(text)) return; s.pausedChats.delete(jid); }
-    const snap = await db.collection('stores').doc(slug).get(); const store = snap.data() || {}; const reply = botReply(text, store, slug); if (reply) await sendAutomated(s, jid, reply);
+    const snap = await db.collection('stores').doc(slug).get(); const store = snap.data() || {}; const reply = botReply(text, store, slug); if (reply) await sendAutomated(slug, s, jid, reply);
   }
   catch (e) { logger.error({ err: e, slug }, 'Falha ao responder'); }
 }
@@ -109,6 +128,17 @@ async function start(slug) {
     s.state = 'connecting'; s.qr = null; s.error = null;
     const sock = makeWASocket({ auth: state, logger, printQRInTerminal: false, browser: Browsers.macOS('Desktop'), markOnlineOnConnect: false, syncFullHistory: false }); s.socket = sock;
     sock.ev.on('creds.update', saveCreds);
+    sock.ev.on('messages.update', (updates) => {
+      for (const { key, update } of updates) {
+        const pending = key?.id && s.pendingMessages.get(key.id);
+        if (!pending || update?.status !== 0) continue;
+        const code = update.messageStubParameters?.find((value) => /^\d+$/.test(String(value)));
+        logger.warn({ slug: pending.slug, messageId: key.id, code: code || 'unknown' }, 'WhatsApp rejected an outgoing message');
+        pending.finish(new Error(code === '463'
+          ? 'O WhatsApp bloqueou temporariamente este envio (código 463). O bridge aceitou a solicitação, mas o WhatsApp recusou a mensagem.'
+          : `O WhatsApp recusou a mensagem${code ? ` (código ${code})` : ''}.`));
+      }
+    });
     sock.ev.on('messages.upsert', ({ messages, type }) => {
       if (type !== 'notify') return;
       for (const m of messages) {
@@ -136,12 +166,16 @@ async function send(slug, jid, text) {
   if (s.state !== 'connected' || !s.socket) { const e = new Error('WhatsApp da loja não está conectado.'); e.status = 503; throw e; }
   const messageId = generateMessageIDV2(s.socket.user?.id);
   markAutomated(s, messageId);
+  const failureWatch = watchSendFailure(s, messageId, slug);
   try {
     const recipientJid = await resolveRecipientJid(s, jid);
     const sent = await s.socket.sendMessage(recipientJid, { text }, { messageId });
     if (!sent?.key?.id) throw new Error('O WhatsApp não retornou a confirmação de aceite do envio.');
+    const sendError = await failureWatch.promise;
+    if (sendError) throw sendError;
     return { accepted: true, deliveryConfirmed: null };
   } catch (e) {
+    failureWatch.cancel();
     s.automatedMessageIds.delete(messageId);
     throw e;
   }
