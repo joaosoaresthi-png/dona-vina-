@@ -1,11 +1,10 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { randomUUID } from 'node:crypto';
 import express from 'express';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import admin from 'firebase-admin';
-import makeWASocket, { Browsers, DisconnectReason, useMultiFileAuthState } from '@whiskeysockets/baileys';
+import makeWASocket, { Browsers, DisconnectReason, generateMessageIDV2, useMultiFileAuthState } from '@whiskeysockets/baileys';
 import pino from 'pino';
 
 const PORT = Number(process.env.PORT || 3000);
@@ -50,9 +49,15 @@ function isBotTrigger(text) {
 }
 function markAutomated(s, id) { s.automatedMessageIds.add(id); const timer = setTimeout(() => s.automatedMessageIds.delete(id), 60_000); timer.unref(); }
 async function sendAutomated(s, jid, text) {
-  const messageId = randomUUID(); markAutomated(s, messageId);
+  const messageId = generateMessageIDV2(s.socket.user?.id); markAutomated(s, messageId);
   try { return await s.socket.sendMessage(jid, { text }, { messageId }); }
   catch (e) { s.automatedMessageIds.delete(messageId); throw e; }
+}
+async function resolveRecipientJid(s, jid) {
+  if (!jid.endsWith('@s.whatsapp.net')) return jid;
+  const mapping = s.socket?.signalRepository?.lidMapping;
+  const lid = await mapping?.getLIDForPN(jid);
+  return typeof lid === 'string' && lid.endsWith('@lid') ? lid : jid;
 }
 function botReply(text, store = {}, slug = '') {
   const w = store.whatsapp || {};
@@ -111,7 +116,11 @@ async function start(slug) {
         if (!pending) continue;
         const status = update.update?.status;
         if ([3, 4, 5].includes(status)) { clearTimeout(pending.timer); s.pendingMessages.delete(id); pending.resolve(true); }
-        else if (status === 0) { clearTimeout(pending.timer); s.pendingMessages.delete(id); pending.reject(new Error('O WhatsApp recusou a mensagem. Confira o número do destinatário e se a sessão da loja segue conectada.')); }
+        else if (status === 0) {
+          clearTimeout(pending.timer); s.pendingMessages.delete(id);
+          logger.warn({ code: update.update?.messageStubParameters?.[0] || null }, 'WhatsApp rejeitou a mensagem');
+          pending.reject(new Error('O WhatsApp rejeitou o envio. Verifique a sessão e os logs do bridge.'));
+        }
       }
     });
     sock.ev.on('messages.upsert', ({ messages, type }) => {
@@ -139,14 +148,15 @@ async function start(slug) {
 async function send(slug, jid, text) {
   const s = sessionFor(slug);
   if (s.state !== 'connected' || !s.socket) { const e = new Error('WhatsApp da loja não está conectado.'); e.status = 503; throw e; }
-  const messageId = randomUUID();
+  const messageId = generateMessageIDV2(s.socket.user?.id);
   markAutomated(s, messageId);
   const delivered = new Promise((resolve, reject) => {
     const timer = setTimeout(() => { s.pendingMessages.delete(messageId); resolve(false); }, 20_000);
     s.pendingMessages.set(messageId, { resolve, reject, timer });
   });
   try {
-    await s.socket.sendMessage(jid, { text }, { messageId });
+    const recipientJid = await resolveRecipientJid(s, jid);
+    await s.socket.sendMessage(recipientJid, { text }, { messageId });
     return await delivered;
   } catch (e) {
     s.automatedMessageIds.delete(messageId);
