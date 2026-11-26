@@ -110,8 +110,8 @@ async function start(slug) {
         const id = update.key?.id, pending = id && s.pendingMessages.get(id);
         if (!pending) continue;
         const status = update.update?.status;
-        if ([3, 4, 5].includes(status)) { clearTimeout(pending.timer); s.pendingMessages.delete(id); pending.resolve(); }
-        else if (status === 0) { clearTimeout(pending.timer); s.pendingMessages.delete(id); pending.reject(new Error('O WhatsApp recusou a mensagem. Confira se o número do motoboy está correto e se a sessão segue conectada.')); }
+        if ([3, 4, 5].includes(status)) { clearTimeout(pending.timer); s.pendingMessages.delete(id); pending.resolve(true); }
+        else if (status === 0) { clearTimeout(pending.timer); s.pendingMessages.delete(id); pending.reject(new Error('O WhatsApp recusou a mensagem. Confira o número do destinatário e se a sessão da loja segue conectada.')); }
       }
     });
     sock.ev.on('messages.upsert', ({ messages, type }) => {
@@ -142,12 +142,12 @@ async function send(slug, jid, text) {
   const messageId = randomUUID();
   markAutomated(s, messageId);
   const delivered = new Promise((resolve, reject) => {
-    const timer = setTimeout(() => { s.pendingMessages.delete(messageId); const e = new Error('O WhatsApp aceitou o envio, mas não confirmou a entrega em 20 segundos. Verifique a sessão e se o destinatário já conversou com a loja.'); e.status = 504; reject(e); }, 20_000);
+    const timer = setTimeout(() => { s.pendingMessages.delete(messageId); resolve(false); }, 20_000);
     s.pendingMessages.set(messageId, { resolve, reject, timer });
   });
   try {
     await s.socket.sendMessage(jid, { text }, { messageId });
-    await delivered;
+    return await delivered;
   } catch (e) {
     s.automatedMessageIds.delete(messageId);
     const pending = s.pendingMessages.get(messageId);
@@ -172,20 +172,20 @@ app.post('/api/stores/:slug/whatsapp/disconnect', authorize, async (req, res) =>
 app.post('/api/stores/:slug/whatsapp/send', authorize, async (req, res) => {
   const phone = phoneDigits(req.body?.phone), text = String(req.body?.text || '').trim();
   if (!phone || !text || text.length > 4000) return res.status(400).json({ error: 'WhatsApp inválido ou mensagem acima de 4.000 caracteres.' });
-  try { await send(req.slug, phone + '@s.whatsapp.net', text); res.json({ ok: true }); } catch (e) { res.status(e.status || 502).json({ error: e.message }); }
+  try { const deliveryConfirmed = await send(req.slug, phone + '@s.whatsapp.net', text); res.json({ ok: true, accepted: true, deliveryConfirmed }); } catch (e) { res.status(e.status || 502).json({ error: e.message }); }
 });
 // Checkout público: só envia para pedido existente e registra uma confirmação por pedido.
 app.post('/api/stores/:slug/orders/:orderId/confirmation', async (req, res) => {
   let slug; try { slug = slugOf(req.params.slug); } catch (e) { return res.status(400).json({ error: e.message }); }
   const id = String(req.params.orderId || ''); if (!/^[A-Za-z0-9_-]{1,150}$/.test(id)) return res.status(400).json({ error: 'Pedido inválido.' });
   const ref = db.collection('stores').doc(slug).collection('orders').doc(id); let order; let duplicate = false;
-  try { await db.runTransaction(async (tx) => { const snap = await tx.get(ref); if (!snap.exists) { const e = new Error('Pedido não encontrado.'); e.status = 404; throw e; } order = snap.data(); if (['sending','sent'].includes(order.whatsappConfirmationStatus)) { duplicate = true; return; } tx.update(ref, { whatsappConfirmationStatus: 'sending' }); }); }
+  try { await db.runTransaction(async (tx) => { const snap = await tx.get(ref); if (!snap.exists) { const e = new Error('Pedido não encontrado.'); e.status = 404; throw e; } order = snap.data(); if (['sending','sent','sent_unconfirmed'].includes(order.whatsappConfirmationStatus)) { duplicate = true; return; } tx.update(ref, { whatsappConfirmationStatus: 'sending' }); }); }
   catch (e) { return res.status(e.status || 500).json({ error: e.message }); }
   if (duplicate) return res.json({ ok: true, duplicate: true });
   try {
     const store = (await db.collection('stores').doc(slug).get()).data(); const phone = phoneDigits(order.customerPhone); if (!phone) throw new Error('Pedido sem WhatsApp válido.');
-    await send(slug, phone + '@s.whatsapp.net', orderText(store.whatsapp?.tplConfirmacao, order, store));
-    await ref.update({ whatsappConfirmationStatus: 'sent', whatsappConfirmationSentAt: admin.firestore.FieldValue.serverTimestamp() }); res.json({ ok: true });
+    const deliveryConfirmed = await send(slug, phone + '@s.whatsapp.net', orderText(store.whatsapp?.tplConfirmacao, order, store));
+    await ref.update({ whatsappConfirmationStatus: deliveryConfirmed ? 'sent' : 'sent_unconfirmed', whatsappConfirmationDeliveryConfirmed: deliveryConfirmed, whatsappConfirmationSentAt: admin.firestore.FieldValue.serverTimestamp() }); res.json({ ok: true, accepted: true, deliveryConfirmed });
   } catch (e) { await ref.update({ whatsappConfirmationStatus: 'failed', whatsappConfirmationError: String(e.message).slice(0,180) }).catch(() => {}); res.status(e.status || 502).json({ error: e.message }); }
 });
 
