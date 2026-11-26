@@ -52,6 +52,9 @@
     #view-welcome { min-height: 100vh; background: #F1F5F9; display: flex; justify-content: center; }
     .welcome-shell { width: 100%; max-width: 520px; min-height: 100vh; background: #F8FAFC; padding: 24px 24px 36px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; text-align: center; box-shadow: 0 0 40px rgba(15,23,42,0.06); position: relative; }
     .welcome-top-bar { width: 100%; display: flex; justify-content: flex-end; }
+    .manager-footer { display:flex; justify-content:center; width:100%; padding:16px 14px 20px; border-top:1px solid var(--border); background:#fff; }
+    .manager-footer .admin-access-fab { background:#E2E8F0; color:#0F172A; border-color:#CBD5E1; box-shadow:none; }
+    .manager-footer .admin-access-fab:hover { background:#CBD5E1; }
     .welcome-admin-btn { background: rgba(15,23,42,0.08); color: #334155; padding: 7px 13px; border-radius: 999px; font-size: 0.76rem; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; }
     .welcome-admin-btn:hover { background: var(--primary); color: #fff; }
     .welcome-center { width: 100%; display: flex; flex-direction: column; align-items: center; margin: auto 0; padding: 12px 0; }
@@ -379,12 +382,6 @@
   <!-- TELA INICIAL PERSONALIZADA DA LOJA (ANTES DO CARDÁPIO) -->
   <div id="view-welcome" class="hidden">
     <div class="welcome-shell">
-      <div class="welcome-top-bar">
-        <button type="button" class="welcome-admin-btn" onclick="switchView('login')">
-          <i data-lucide="lock" style="width:13px;height:13px;"></i> Painel Gestor
-        </button>
-      </div>
-
       <div class="welcome-center">
         <div class="welcome-logo-box">
           <img id="welcome-logo" src="" alt="Logo da Loja" />
@@ -446,9 +443,10 @@
         </div>
       </div>
 
-      <div style="font-size:0.72rem;color:#94A3B8;font-weight:600;">
-        Cardápio Digital • Acompanhamento em Tempo Real
+      <div class="manager-footer" style="margin-top:18px;">
+        <button type="button" class="admin-access-fab" onclick="switchView('login')"><i data-lucide="lock" style="width:13px;height:13px;"></i> Painel Gestor</button>
       </div>
+      <div style="font-size:0.72rem;color:#94A3B8;font-weight:600;margin-top:10px;">Cardápio Digital • Acompanhamento em Tempo Real</div>
     </div>
   </div>
 
@@ -483,9 +481,6 @@
         <div class="banner-top-actions">
           <button type="button" class="admin-access-fab" onclick="switchView('welcome')">
             <i data-lucide="arrow-left" style="width:14px;height:14px;"></i> Início / Rastrear
-          </button>
-          <button type="button" class="admin-access-fab" onclick="switchView('login')">
-            <i data-lucide="lock" style="width:14px;height:14px;"></i> Painel Gestor
           </button>
         </div>
       </div>
@@ -522,6 +517,9 @@
         <div id="cust-category-tabs" class="category-tabs"></div>
       </div>
       <div id="cust-menu-container" class="menu-content"></div>
+      <div class="manager-footer">
+        <button type="button" class="admin-access-fab" onclick="switchView('login')"><i data-lucide="lock" style="width:14px;height:14px;"></i> Painel Gestor</button>
+      </div>
       <div id="cust-floating-cart" class="floating-cart-bar hidden" onclick="openCartDrawer()">
         <div style="display:flex;align-items:center;gap:10px;">
           <span id="cart-bar-count" class="cart-badge-count">0</span>
@@ -544,7 +542,7 @@
       <form onsubmit="handleAdminLogin(event)">
         <div class="form-group">
           <label class="form-label">E-mail Administrativo</label>
-          <input type="email" id="login-email" class="form-input" required placeholder="joaosoaresthi@gmail.com" />
+          <input type="email" id="login-email" class="form-input" required placeholder="Digite o e-mail da sua loja" autocomplete="username" />
         </div>
         <div class="form-group">
           <label class="form-label">Senha</label>
@@ -552,8 +550,7 @@
         </div>
         <button type="submit" id="login-submit-btn" class="btn btn-primary" style="width:100%;padding:12px;margin-top:6px;">Entrar no Painel</button>
       </form>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;padding-top:16px;border-top:1px solid var(--border);font-size:0.8rem;">
-        <button type="button" style="color:var(--primary);font-weight:700;" onclick="fillDemoLogin()">Preencher E-mail Master</button>
+      <div style="display:flex;justify-content:center;align-items:center;margin-top:16px;padding-top:16px;border-top:1px solid var(--border);font-size:0.8rem;">
         <button type="button" style="color:var(--text-muted);font-weight:600;" onclick="switchView('welcome')">← Voltar à Loja</button>
       </div>
     </div>
@@ -2177,7 +2174,6 @@
       finally { isSubmittingCustomerOrder = false; submitButton.disabled = false; submitButton.textContent = "Finalizar pedido"; }
     }
 
-    function fillDemoLogin() { document.getElementById("login-email").value = MASTER_EMAIL; document.getElementById("login-pass").focus(); }
     async function handleAdminLogin(e) {
       e.preventDefault();
       const btn = document.getElementById("login-submit-btn");
@@ -3124,7 +3120,7 @@
       switchView, enterStoreCatalog, openTrackOrdersModal, closeTrackOrdersModal, searchCustomerOrdersByPhone,
       openStoreInfoModal, renderCustomerMenu, selectCustomerCat, openProductModal, closeProductModal, changeModalQty, handleModalOptionChange, recalcModalPrice, confirmAddModalItem,
       openCartDrawer, closeCartDrawer, applyCartCoupon, setCartDeliveryMode, setCustomerPayment, toggleCustPaymentInfo, updateDeliveryQuote, formatCepInput, changeCustomerCartQty, removeCustomerCartItem, advanceCartCheckout, previousCartStep, finalizeCustomerOrder,
-      handleAdminLogin, fillDemoLogin, handleAdminLogout, switchAdminTab, openStorePublicLink, copyCurrentStoreUrl, toggleStoreOpen, setOrderFilter,
+      handleAdminLogin, handleAdminLogout, switchAdminTab, openStorePublicLink, copyCurrentStoreUrl, toggleStoreOpen, setOrderFilter,
       advanceOrderStatus, resendOrderStatusNotification, deleteOrder, openOrderDetailModal, closeOrderDetailModal, printOrderReceipt, renderPdvCatalog, selectPdvCategory, handlePdvItemClick, removePdvCartItem, clearPdvCart,
       switchPdvView, addMotoboy, removeMotoboy, addDeliveryZone, removeDeliveryZone, renderPdvLogistics, saveOrderCourier, sendRiderRoute,
       autoFillPdvCustomer, togglePdvDeliveryFields, togglePdvChangeField, renderPdvCart, submitPdvOrder, openProductEditor, closeProductEditor,
