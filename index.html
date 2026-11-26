@@ -2318,7 +2318,10 @@
                 <button type="button" class="btn btn-outline btn-sm" onclick="openOrderDetailModal('${key}')">Detalhes</button>
                 <button type="button" class="btn btn-outline btn-sm" onclick="printOrderReceipt('${key}')">Imprimir</button>
               </div>
-              ${btn}
+              <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
+                ${btn}
+                ${o.whatsappStatusNotificationState === "failed" ? `<button type="button" class="btn btn-outline btn-sm" onclick="resendOrderStatusNotification('${key}')">Reenviar aviso WhatsApp</button>` : ""}
+              </div>
             </div>
           </div>`;
       }).join("") || '<p style="color:var(--text-muted);font-size:0.9rem;">Nenhum pedido nesta etapa.</p>';
@@ -2331,14 +2334,64 @@
         .replace(/\{total\}/g, formatBRL(o.total)).replace(/\{endereco\}/g, o.address).replace(/\{tempo\}/g, currentStore.eta);
     }
 
+    function orderStatusTemplate(status) {
+      const templates = {
+        preparo: currentStore.whatsapp?.tplPreparo,
+        pronto: currentStore.whatsapp?.tplPronto || "Olá {cliente}! Seu pedido {pedido} está pronto para sair. 🍔",
+        entrega: currentStore.whatsapp?.tplEntrega,
+        concluido: currentStore.whatsapp?.tplConcluido
+      };
+      return templates[status] || "";
+    }
+
+    async function sendOrderStatusNotification(order) {
+      const status = order.whatsappStatusNotification;
+      const tpl = orderStatusTemplate(status);
+      if (!tpl || !order.customerPhone) {
+        Object.assign(order, { whatsappStatusNotificationState: "failed", whatsappStatusNotificationError: "Telefone ou texto do status não configurado." });
+      } else {
+        Object.assign(order, { whatsappStatusNotificationState: "sending", whatsappStatusNotificationError: "" });
+        if (order.firestoreId) await updateDoc(doc(db, "stores", currentSlug, "orders", order.firestoreId), {
+          whatsappStatusNotification: status,
+          whatsappStatusNotificationState: "sending",
+          whatsappStatusNotificationError: ""
+        });
+        const result = await dispatchWhatsAppMessage(order.customerPhone, formatTemplateMessage(tpl, order), true);
+        Object.assign(order, result.ok
+          ? { whatsappStatusNotificationState: "sent", whatsappStatusNotificationError: "", whatsappStatusNotificationSentAt: Date.now() }
+          : { whatsappStatusNotificationState: "failed", whatsappStatusNotificationError: result.error || "Falha no envio." });
+      }
+      if (order.firestoreId) await updateDoc(doc(db, "stores", currentSlug, "orders", order.firestoreId), {
+        whatsappStatusNotificationState: order.whatsappStatusNotificationState,
+        whatsappStatusNotificationError: order.whatsappStatusNotificationError || "",
+        ...(order.whatsappStatusNotificationState === "sent" ? { whatsappStatusNotificationSentAt: order.whatsappStatusNotificationSentAt } : {})
+      });
+      renderAdminOrders();
+      if (order.whatsappStatusNotificationState === "failed") showToast("Status atualizado, mas o aviso não chegou. Use Reenviar aviso WhatsApp após corrigir a conexão.", "warning");
+      else if (order.whatsappStatusNotificationState === "sent") showToast("WhatsApp confirmou a entrega do aviso ao cliente.", "success");
+      return order.whatsappStatusNotificationState === "sent";
+    }
+
+    async function resendOrderStatusNotification(key) {
+      const order = currentOrders.find(x => (x.firestoreId || x.id) === key);
+      if (!order) return;
+      await sendOrderStatusNotification(order);
+    }
+
     async function advanceOrderStatus(key, newStatus) {
       const o = currentOrders.find(x => (x.firestoreId || x.id) === key);
       if (!o) return;
-      if (o.firestoreId) await updateDoc(doc(db, "stores", currentSlug, "orders", o.firestoreId), { status: newStatus });
-      const tplByStatus = { preparo: currentStore.whatsapp?.tplPreparo, pronto: currentStore.whatsapp?.tplPronto || "Olá {cliente}! Seu pedido {pedido} está pronto para sair. 🍔", entrega: currentStore.whatsapp?.tplEntrega, concluido: currentStore.whatsapp?.tplConcluido };
-      const tpl = tplByStatus[newStatus];
+      const tpl = orderStatusTemplate(newStatus);
+      Object.assign(o, { status: newStatus, whatsappStatusNotification: newStatus, whatsappStatusNotificationState: tpl && o.customerPhone ? "sending" : "not_configured", whatsappStatusNotificationError: "" });
+      if (o.firestoreId) await updateDoc(doc(db, "stores", currentSlug, "orders", o.firestoreId), {
+        status: newStatus,
+        whatsappStatusNotification: newStatus,
+        whatsappStatusNotificationState: o.whatsappStatusNotificationState,
+        whatsappStatusNotificationError: ""
+      });
       if (newStatus === "pronto") showToast(`Pedido ${o.id} pronto para expedição.`, "success");
-      if (tpl && o.customerPhone) await dispatchWhatsAppMessage(o.customerPhone, formatTemplateMessage(tpl, o), false);
+      renderAdminOrders();
+      if (tpl && o.customerPhone) await sendOrderStatusNotification(o);
     }
 
     function openOrderDetailModal(key) {
@@ -2622,7 +2675,7 @@
           });
           const data = await resp.json().catch(() => ({}));
           if (!resp.ok) throw new Error(data.error || "Falha ao enviar mensagem.");
-          if (data.deliveryConfirmed === false) throw new Error(data.error || "O WhatsApp recusou ou não confirmou a mensagem.");
+          if (data.deliveryConfirmed !== true) throw new Error(data.error || "O bridge aceitou o pedido, mas não confirmou a entrega pelo WhatsApp.");
           if (data.deliveryConfirmed === true) {
             if (!silent) showToast(`WhatsApp confirmou a entrega para ${digits}.`, "success");
           } else if (!silent) {
@@ -2899,7 +2952,7 @@
       openStoreInfoModal, renderCustomerMenu, selectCustomerCat, openProductModal, closeProductModal, changeModalQty, handleModalOptionChange, recalcModalPrice, confirmAddModalItem,
       openCartDrawer, closeCartDrawer, applyCartCoupon, setCartDeliveryMode, setCustomerPayment, toggleCustPaymentInfo, updateDeliveryQuote, formatCepInput, changeCustomerCartQty, removeCustomerCartItem, advanceCartCheckout, previousCartStep, finalizeCustomerOrder,
       handleAdminLogin, fillDemoLogin, handleAdminLogout, switchAdminTab, openStorePublicLink, copyCurrentStoreUrl, toggleStoreOpen, setOrderFilter,
-      advanceOrderStatus, openOrderDetailModal, closeOrderDetailModal, printOrderReceipt, renderPdvCatalog, selectPdvCategory, handlePdvItemClick, removePdvCartItem, clearPdvCart,
+      advanceOrderStatus, resendOrderStatusNotification, openOrderDetailModal, closeOrderDetailModal, printOrderReceipt, renderPdvCatalog, selectPdvCategory, handlePdvItemClick, removePdvCartItem, clearPdvCart,
       switchPdvView, addMotoboy, removeMotoboy, addDeliveryZone, removeDeliveryZone, renderPdvLogistics, saveOrderCourier, sendRiderRoute,
       autoFillPdvCustomer, togglePdvDeliveryFields, togglePdvChangeField, renderPdvCart, submitPdvOrder, openProductEditor, closeProductEditor,
       handleProductImageUpload, addEditorOptionGroup, renderEditorGroups, saveProductFromEditor, toggleProductAvail, deleteProduct, addCategory, moveCategory,
