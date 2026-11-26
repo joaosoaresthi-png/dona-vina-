@@ -301,7 +301,7 @@
       .pdv-switcher button { flex: 1; }
       .dispatch-order { padding: 12px; }
       #pdv-view-logistics form[onsubmit="addDeliveryZone(event)"] { grid-template-columns: 1fr 1fr !important; }
-      #pdv-view-logistics form[onsubmit="addDeliveryZone(event)"] > div:nth-child(3) { grid-column: 1 / -1; }
+      #pdv-view-logistics form[onsubmit="addDeliveryZone(event)"] > button { grid-column: 1 / -1; }
     }
   </style>
 </head>
@@ -649,14 +649,16 @@
         </div>
         <div id="pdv-view-logistics" class="hidden">
           <div class="panel-card" style="margin-bottom:18px;">
-            <h3 style="font-size:1.08rem;font-weight:800;">Taxas de entrega por raio</h3>
-            <p style="font-size:.82rem;color:var(--text-muted);margin:4px 0 14px;">Defina o raio máximo, o preço e os bairros atendidos em cada faixa. O checkout usa o bairro informado pelo cliente; cadastre cada bairro em apenas uma faixa.</p>
-            <form onsubmit="addDeliveryZone(event)" style="display:grid;grid-template-columns:minmax(130px,.7fr) minmax(130px,.7fr) minmax(220px,2fr) auto;gap:9px;align-items:end;margin-bottom:12px;">
-              <div><label class="form-label" for="delivery-zone-radius">Raio máximo (km)</label><input id="delivery-zone-radius" type="number" class="form-input" min="0.1" step="0.1" required placeholder="Ex.: 3" /></div>
-              <div><label class="form-label" for="delivery-zone-fee">Valor (R$)</label><input id="delivery-zone-fee" type="number" class="form-input" min="0" step="0.01" required placeholder="Ex.: 6.00" /></div>
-              <div><label class="form-label" for="delivery-zone-neighborhoods">Bairros desta faixa</label><input id="delivery-zone-neighborhoods" class="form-input" required placeholder="Centro, São Marcos" /></div>
+            <h3 style="font-size:1.08rem;font-weight:800;">Entrega por CEP e distância</h3>
+            <p style="font-size:.82rem;color:var(--text-muted);margin:4px 0 14px;">Associe cada faixa de CEP a uma distância em quilômetros e à respectiva taxa. A cobertura é conferida pelo CEP informado no checkout, sem usar bairros.</p>
+            <form onsubmit="addDeliveryZone(event)" style="display:grid;grid-template-columns:repeat(4,minmax(120px,1fr)) auto;gap:9px;align-items:end;margin-bottom:12px;">
+              <div><label class="form-label" for="delivery-zone-cep-start">CEP inicial</label><input id="delivery-zone-cep-start" type="text" class="form-input" inputmode="numeric" maxlength="9" oninput="formatCepInput(this)" required placeholder="83000-000" /></div>
+              <div><label class="form-label" for="delivery-zone-cep-end">CEP final</label><input id="delivery-zone-cep-end" type="text" class="form-input" inputmode="numeric" maxlength="9" oninput="formatCepInput(this)" required placeholder="83009-999" /></div>
+              <div><label class="form-label" for="delivery-zone-distance">Distância estimada (km)</label><input id="delivery-zone-distance" type="number" class="form-input" min="0.1" step="0.1" required placeholder="Ex.: 3" /></div>
+              <div><label class="form-label" for="delivery-zone-fee">Taxa (R$)</label><input id="delivery-zone-fee" type="number" class="form-input" min="0" step="0.01" required placeholder="Ex.: 6,00" /></div>
               <button type="submit" class="btn btn-primary">Adicionar faixa</button>
             </form>
+            <p style="font-size:.76rem;color:var(--text-muted);">A distância cadastrada é uma estimativa atribuída à faixa de CEP. O cálculo de quilometragem real de rua exige geolocalização por serviço externo.</p>
             <div id="pdv-delivery-zones"></div>
           </div>
           <div class="logistics-layout">
@@ -850,7 +852,8 @@
               <div class="form-group"><label class="form-label">Cor Principal</label><input type="color" id="set-color" class="form-input" style="height:42px;padding:4px;" /></div>
               <div class="form-group"><label class="form-label">Horário de Funcionamento</label><input type="text" id="set-hours" class="form-input" /></div>
             </div>
-            <div class="form-group"><label class="form-label">Endereço Completo</label><input type="text" id="set-address" class="form-input" /></div>
+              <div class="form-group"><label class="form-label">Endereço exato da loja (origem das rotas)</label><input type="text" id="set-address" class="form-input" placeholder="Rua, número, bairro, cidade e UF" /></div>
+              <div class="form-group"><label class="form-label">CEP da loja</label><input type="text" id="set-store-cep" class="form-input" inputmode="numeric" maxlength="9" oninput="formatCepInput(this)" placeholder="00000-000" /></div>
             <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-top:16px;">
               <button type="submit" class="btn btn-primary">Salvar Configurações na Nuvem</button>
               <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -1016,14 +1019,12 @@
             <div class="cart-step-title">Onde entregamos?</div><p class="cart-step-caption">A taxa aparece depois que você informa o bairro.</p>
             <div id="cust-address-wrap" class="address-box-grid">
             <div style="font-size:0.78rem;font-weight:800;margin-bottom:8px;color:#334155;">Endereço Completo de Entrega</div>
+            <div style="margin-bottom:8px;"><label class="form-label" for="cust-addr-cep">CEP *</label><input type="text" id="cust-addr-cep" class="form-input" inputmode="numeric" autocomplete="postal-code" maxlength="9" oninput="formatCepInput(this);updateDeliveryQuote()" placeholder="00000-000" /></div>
             <div style="display:grid;grid-template-columns:2fr 0.8fr;gap:8px;margin-bottom:8px;">
               <div><label class="form-label">Rua / Avenida *</label><input type="text" id="cust-addr-street" class="form-input" oninput="updateDeliveryQuote()" placeholder="Digite a rua ou avenida" /></div>
               <div><label class="form-label">Número *</label><input type="text" id="cust-addr-number" class="form-input" oninput="updateDeliveryQuote()" placeholder="Número do imóvel" /></div>
             </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
-              <div><label class="form-label">Bairro *</label><input type="text" id="cust-addr-neighborhood" class="form-input" oninput="updateDeliveryQuote()" placeholder="Digite o bairro" /></div>
-              <div><label class="form-label">Complemento / Apto</label><input type="text" id="cust-addr-complement" class="form-input" placeholder="Casa 2, Bloco B..." /></div>
-            </div>
+            <div style="margin-bottom:8px;"><label class="form-label" for="cust-addr-complement">Complemento / Apto</label><input type="text" id="cust-addr-complement" class="form-input" placeholder="Casa 2, Bloco B..." /></div>
             <div><label class="form-label">Ponto de Referência</label><input type="text" id="cust-addr-reference" class="form-input" placeholder="Próximo ao mercado / portão preto..." /></div>
             <p id="cust-delivery-quote-message" aria-live="polite" style="font-size:.8rem;color:var(--text-muted);margin-top:9px;">Informe rua, número e bairro para consultar a taxa de entrega.</p>
             </div>
@@ -1296,6 +1297,16 @@
       return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().replace(/\s+/g, " ").toLowerCase();
     }
 
+    function normalizeCep(value) { return String(value || "").replace(/\D/g, "").slice(0, 8); }
+    function formatCep(value) {
+      const digits = normalizeCep(value);
+      return digits.length === 8 ? `${digits.slice(0, 5)}-${digits.slice(5)}` : String(value || "");
+    }
+    function formatCepInput(input) {
+      const digits = normalizeCep(input.value);
+      input.value = digits.length > 5 ? `${digits.slice(0, 5)}-${digits.slice(5)}` : digits;
+    }
+
     function normalizeStoreMenu(store) {
       const categories = (Array.isArray(store.categories) ? store.categories : []).map((category, index) => {
         const name = String(category.name || category.title || category.label || "").trim();
@@ -1319,13 +1330,14 @@
     }
 
     function buildFormattedAddress(prefix) {
+      const cep = document.getElementById(`${prefix}-addr-cep`)?.value || "";
       const street = (document.getElementById(`${prefix}-addr-street`)?.value || "").trim();
       const number = (document.getElementById(`${prefix}-addr-number`)?.value || "").trim();
       const neighborhood = (document.getElementById(`${prefix}-addr-neighborhood`)?.value || "").trim();
       const complement = (document.getElementById(`${prefix}-addr-complement`)?.value || "").trim();
       const reference = (document.getElementById(`${prefix}-addr-reference`)?.value || "").trim();
       if (!street) return "";
-      let line = `${street}${number ? ", nº " + number : ""}${neighborhood ? " - Bairro: " + neighborhood : ""}`;
+      let line = `${street}${number ? ", nº " + number : ""}${neighborhood ? " - Bairro: " + neighborhood : ""}${normalizeCep(cep).length === 8 ? " · CEP " + formatCep(cep) : ""}`;
       if (complement) line += ` (${complement})`;
       if (reference) line += ` | Ref: ${reference}`;
       return line;
@@ -1903,8 +1915,8 @@
       }
       if (cartCheckoutStep === "address") {
         const zone = findCustomerDeliveryZone();
-        if (!customerAddressReady()) { showToast("Preencha rua, número e bairro.", "warning"); return; }
-        if (!zone) { showToast("Não atendemos esse bairro. Revise o endereço ou escolha retirada.", "warning"); return; }
+        if (!customerAddressReady()) { showToast("Informe CEP válido, rua e número.", "warning"); return; }
+        if (!zone) { showToast("Esse CEP não está em uma faixa atendida. Confira ou escolha retirada.", "warning"); return; }
         setCartCheckoutStep("payment"); return;
       }
       finalizeCustomerOrder();
@@ -1932,13 +1944,16 @@
     }
 
     function customerAddressReady() {
-      return Boolean(document.getElementById("cust-addr-street")?.value.trim() && document.getElementById("cust-addr-number")?.value.trim() && document.getElementById("cust-addr-neighborhood")?.value.trim());
+      return Boolean(normalizeCep(document.getElementById("cust-addr-cep")?.value).length === 8 && document.getElementById("cust-addr-street")?.value.trim() && document.getElementById("cust-addr-number")?.value.trim());
     }
 
     function findCustomerDeliveryZone() {
       if (!customerAddressReady()) return null;
-      const neighborhood = normalizeCategoryKey(document.getElementById("cust-addr-neighborhood").value);
-      return (currentStore.deliveryZones || []).find(zone => (zone.neighborhoods || []).some(name => normalizeCategoryKey(name) === neighborhood)) || null;
+      const cep = Number(normalizeCep(document.getElementById("cust-addr-cep").value));
+      return (currentStore.deliveryZones || []).find(zone => {
+        const start = normalizeCep(zone.cepStart), end = normalizeCep(zone.cepEnd);
+        return start.length === 8 && end.length === 8 && cep >= Number(start) && cep <= Number(end);
+      }) || null;
     }
 
     function updateDeliveryQuote() { renderCartDrawer(); }
@@ -1979,10 +1994,10 @@
       const quoteMessage = document.getElementById("cust-delivery-quote-message");
       if (quoteMessage) {
         if (cartDeliveryMode === "pickup") quoteMessage.textContent = "Retirada no local sem taxa de entrega.";
-        else if (!customerAddressReady()) quoteMessage.textContent = "Informe rua, número e bairro para consultar a taxa de entrega.";
-        else if (!(currentStore.deliveryZones || []).length) quoteMessage.textContent = "A loja ainda não cadastrou as faixas de entrega.";
-        else if (fee === null) quoteMessage.textContent = `Não atendemos o bairro “${document.getElementById("cust-addr-neighborhood").value.trim()}” no delivery. Escolha retirada no local.`;
-        else quoteMessage.textContent = `Frete ${formatBRL(fee)} · faixa até ${Number(zone.maxKm).toLocaleString("pt-BR")} km.`;
+        else if (!customerAddressReady()) quoteMessage.textContent = "Informe CEP, rua e número para consultar a taxa de entrega.";
+        else if (!(currentStore.deliveryZones || []).some(z => z.cepStart && z.cepEnd)) quoteMessage.textContent = "A loja ainda não cadastrou faixas de CEP e distância.";
+        else if (fee === null) quoteMessage.textContent = `O CEP ${formatCep(document.getElementById("cust-addr-cep").value)} não está em uma faixa atendida. Escolha retirada ou confirme com a loja.`;
+        else quoteMessage.textContent = `Distância estimada cadastrada: ${Number(zone.distanceKm || zone.maxKm).toLocaleString("pt-BR")} km · entrega ${formatBRL(fee)}.`;
       }
       document.getElementById("checkout-sub").textContent = formatBRL(subtotal);
       document.getElementById("checkout-fee").textContent = fee === null ? "Preencha o endereço" : fee === 0 ? "Grátis" : formatBRL(fee);
@@ -1994,7 +2009,9 @@
       document.getElementById("checkout-fee-payment").textContent = fee === null ? "—" : fee === 0 ? "Grátis" : formatBRL(fee);
       document.getElementById("checkout-disc-payment").textContent = "- " + formatBRL(discount);
       document.getElementById("checkout-total-payment").textContent = total === null ? "—" : formatBRL(total);
-      document.getElementById("checkout-address-payment").textContent = cartDeliveryMode === "pickup" ? "Retirada no balcão" : customerAddressReady() ? buildFormattedAddress("cust") : "Endereço ainda não informado";
+      const paymentAddress = cartDeliveryMode === "pickup" ? "Retirada no balcão" : customerAddressReady() ? buildFormattedAddress("cust") : "Endereço ainda não informado";
+      const distanceSummary = cartDeliveryMode === "delivery" && zone ? `Estimativa: ${Number(zone.distanceKm || zone.maxKm).toLocaleString("pt-BR")} km` : "";
+      document.getElementById("checkout-address-payment").textContent = [paymentAddress, distanceSummary].filter(Boolean).join(" · ");
     }
     function changeCustomerCartQty(idx, delta) { const item = customerCart[idx]; if (!item) return; item.qty += delta; if (item.qty < 1) customerCart.splice(idx, 1); updateFloatingCartBar(); renderCartDrawer(); }
     function removeCustomerCartItem(idx) { customerCart.splice(idx, 1); updateFloatingCartBar(); renderCartDrawer(); }
@@ -2006,16 +2023,16 @@
       const phone = normalizeWhatsAppPhone(document.getElementById("cust-order-phone").value);
       const street = document.getElementById("cust-addr-street").value.trim();
       const number = document.getElementById("cust-addr-number").value.trim();
-      const neighborhood = document.getElementById("cust-addr-neighborhood").value.trim();
+      const cep = normalizeCep(document.getElementById("cust-addr-cep").value);
       const payment = document.getElementById("cust-order-payment").value;
       const changeFor = payment === "Dinheiro" ? Number(document.getElementById("cust-order-change").value || 0) : 0;
       if (!name || !phone) { showToast("Preencha seu nome e WhatsApp.", "warning"); return; }
       if (!/^55\d{10,11}$/.test(phone)) { showToast("Informe um WhatsApp válido com DDD.", "warning"); return; }
-      if (cartDeliveryMode === "delivery" && (!street || !number || !neighborhood)) {
-        showToast("Preencha Rua, Número e Bairro para entrega.", "warning"); return;
+      if (cartDeliveryMode === "delivery" && (cep.length !== 8 || !street || !number)) {
+        showToast("Informe um CEP válido, rua e número para entrega.", "warning"); return;
       }
       const zone = cartDeliveryMode === "delivery" ? findCustomerDeliveryZone() : null;
-      if (cartDeliveryMode === "delivery" && !zone) { showToast("A loja não atende esse bairro no delivery. Escolha retirada ou fale com a loja.", "warning"); return; }
+      if (cartDeliveryMode === "delivery" && !zone) { showToast("A loja não atende esse CEP. Escolha retirada ou fale com a loja.", "warning"); return; }
 
       localStorage.setItem("last_customer_whatsapp", phone);
       const fullAddress = cartDeliveryMode === "delivery" ? buildFormattedAddress("cust") : "Retirada no Balcão";
@@ -2024,7 +2041,8 @@
       const newOrder = {
         id: "PED-" + Math.floor(1000 + Math.random() * 9000),
         customerName: name, customerPhone: phone, type: cartDeliveryMode,
-        address: fullAddress, deliveryRadiusKm: zone ? Number(zone.maxKm) : 0, deliveryNeighborhood: zone ? neighborhood : "",
+        address: fullAddress, deliveryCep: zone ? formatCep(cep) : "",
+        deliveryDistanceKm: zone ? Number(zone.distanceKm || zone.maxKm) : 0, deliveryRadiusKm: zone ? Number(zone.distanceKm || zone.maxKm) : 0,
         payment, changeFor, items: structuredClone(customerCart), subtotal, fee, discount, total,
         status: "novo", createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
         createdTimestamp: Date.now()
@@ -2144,7 +2162,15 @@
       const zonesList = document.getElementById("pdv-delivery-zones");
       if (!queue || !riderList || !zonesList) return;
       const deliveryZones = Array.isArray(currentStore.deliveryZones) ? currentStore.deliveryZones : [];
-      zonesList.innerHTML = deliveryZones.length ? deliveryZones.slice().sort((a, b) => Number(a.maxKm) - Number(b.maxKm)).map(zone => `<div class="rider-row"><div><strong>Até ${Number(zone.maxKm).toLocaleString("pt-BR")} km · ${formatBRL(zone.fee)}</strong><div style="font-size:.78rem;color:var(--text-muted);">Bairros: ${(zone.neighborhoods || []).join(", ")}</div></div><button type="button" class="btn btn-outline btn-sm" style="color:#DC2626;" onclick="removeDeliveryZone('${zone.id}')">Remover</button></div>`).join("") : `<div class="logistics-empty">Nenhuma faixa cadastrada. Cadastre ao menos uma faixa para aceitar pedidos com entrega.</div>`;
+      zonesList.innerHTML = deliveryZones.length ? deliveryZones.slice().sort((a, b) => Number(a.distanceKm || a.maxKm) - Number(b.distanceKm || b.maxKm)).map(zone => {
+        const start = normalizeCep(zone.cepStart), end = normalizeCep(zone.cepEnd);
+        const hasCepRange = start.length === 8 && end.length === 8;
+        const label = hasCepRange
+          ? `${formatCep(start)}–${formatCep(end)} · distância estimada ${Number(zone.distanceKm || zone.maxKm).toLocaleString("pt-BR")} km`
+          : `Faixa antiga por bairro (${(zone.neighborhoods || []).join(", ") || "sem CEP cadastrado"}) · recadastre por CEP`;
+        const title = hasCepRange ? `${Number(zone.distanceKm || zone.maxKm).toLocaleString("pt-BR")} km · ${formatBRL(zone.fee)}` : `${formatBRL(zone.fee)} · migração necessária`;
+        return `<div class="rider-row"><div><strong>${title}</strong><div style="font-size:.78rem;color:var(--text-muted);">${label}</div></div><button type="button" class="btn btn-outline btn-sm" style="color:#DC2626;" onclick="removeDeliveryZone('${zone.id}')">Remover</button></div>`;
+      }).join("") : `<div class="logistics-empty">Nenhuma faixa cadastrada. Cadastre CEPs e distâncias para aceitar pedidos com entrega.</div>`;
       const ready = currentOrders.filter(o => o.status === "pronto" && o.type === "delivery");
       const riders = Array.isArray(currentStore.motoboys) ? currentStore.motoboys : [];
       const count = document.getElementById("pdv-ready-count");
@@ -2155,7 +2181,7 @@
         return `<article class="dispatch-order">
           <div class="dispatch-order-top"><strong>${o.id} · ${o.customerName || "Cliente"}</strong><span class="status-tag status-pronto">PRONTO</span></div>
           <div class="dispatch-address"><strong>Destino</strong><br>${o.address || "Endereço não informado"}</div>
-          ${Number(o.fee) > 0 ? `<div style="font-size:.82rem;color:var(--text-muted);">Taxa de entrega: ${formatBRL(o.fee)}${o.deliveryRadiusKm ? ` · faixa até ${o.deliveryRadiusKm} km` : ""}</div>` : ""}
+          ${(Number(o.fee) >= 0 && (o.deliveryDistanceKm || o.deliveryRadiusKm)) ? `<div style="font-size:.82rem;color:var(--text-muted);">Estimativa: ${o.deliveryDistanceKm || o.deliveryRadiusKm} km · taxa ${formatBRL(o.fee)}</div>` : ""}
           <div style="font-size:.82rem;color:var(--text-muted);"><strong>Itens:</strong> ${items || "—"}</div>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
             <select id="courier-${key}" class="form-select" aria-label="Motoboy do pedido ${o.id}" style="flex:1;min-width:180px;" onchange="saveOrderCourier('${key}', this.value)">
@@ -2172,14 +2198,19 @@
 
     async function addDeliveryZone(event) {
       event.preventDefault();
-      const maxKm = Number(document.getElementById("delivery-zone-radius").value);
+      const cepStart = normalizeCep(document.getElementById("delivery-zone-cep-start").value);
+      const cepEnd = normalizeCep(document.getElementById("delivery-zone-cep-end").value);
+      const distanceKm = Number(document.getElementById("delivery-zone-distance").value);
       const fee = Number(document.getElementById("delivery-zone-fee").value);
-      const neighborhoods = [...new Set(document.getElementById("delivery-zone-neighborhoods").value.split(",").map(name => name.trim()).filter(Boolean))];
-      if (!Number.isFinite(maxKm) || maxKm <= 0 || !Number.isFinite(fee) || fee < 0 || !neighborhoods.length) { showToast("Informe um raio, valor e pelo menos um bairro.", "warning"); return; }
+      if (!currentStore.address?.trim() || normalizeCep(currentStore.storeCep).length !== 8) { showToast("Cadastre e salve primeiro o endereço exato e o CEP da loja nas Configurações.", "warning"); return; }
+      if (cepStart.length !== 8 || cepEnd.length !== 8 || Number(cepStart) > Number(cepEnd) || !Number.isFinite(distanceKm) || distanceKm <= 0 || !Number.isFinite(fee) || fee < 0) { showToast("Informe uma faixa de CEP válida, distância estimada e taxa.", "warning"); return; }
       const existing = currentStore.deliveryZones || [];
-      const usedNames = new Set(existing.flatMap(zone => (zone.neighborhoods || []).map(normalizeCategoryKey)));
-      if (neighborhoods.some(name => usedNames.has(normalizeCategoryKey(name)))) { showToast("Cada bairro só pode pertencer a uma faixa. Remova-o da faixa atual primeiro.", "warning"); return; }
-      currentStore.deliveryZones = [...existing, { id: `delivery-${Date.now()}`, maxKm, fee, neighborhoods }].sort((a, b) => a.maxKm - b.maxKm);
+      const overlaps = existing.some(zone => {
+        const start = normalizeCep(zone.cepStart), end = normalizeCep(zone.cepEnd);
+        return start.length === 8 && end.length === 8 && Number(cepStart) <= Number(end) && Number(cepEnd) >= Number(start);
+      });
+      if (overlaps) { showToast("Essa faixa de CEP cruza outra já cadastrada. Ajuste os limites para evitar conflito.", "warning"); return; }
+      currentStore.deliveryZones = [...existing, { id: `delivery-${Date.now()}`, cepStart, cepEnd, distanceKm, maxKm: distanceKm, fee, neighborhoods: [] }].sort((a, b) => a.distanceKm - b.distanceKm);
       await persistStoreData();
       event.target.reset();
       renderPdvLogistics();
@@ -2210,9 +2241,12 @@
       const rider = (currentStore.motoboys || []).find(r => r.id === order.motoboyId) || (order.motoboyPhone ? { name: order.motoboyName, phone: order.motoboyPhone } : null);
       if (!rider) { showToast("Escolha um motoboy antes de enviar a rota.", "warning"); return; }
       if (!order.address || order.address === "Retirada no Balcão") { showToast("Este pedido não tem endereço de entrega.", "warning"); return; }
-      const route = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(currentStore.address || "")}&destination=${encodeURIComponent(order.address)}&travelmode=driving`;
+      const origin = `${currentStore.address || ""}${currentStore.storeCep ? `, CEP ${formatCep(currentStore.storeCep)}` : ""}`;
+      const route = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(order.address)}&travelmode=driving`;
       const items = (order.items || []).map(i => `${i.qty}× ${i.name}`).join(", ");
-      const message = `Olá ${rider.name}! O pedido ${order.id} está pronto para entrega.\n\nCliente: ${order.customerName}\nEndereço: ${order.address}\nPedido: ${items}\n\nRota: ${route}`;
+      const distance = order.deliveryDistanceKm || order.deliveryRadiusKm;
+      const distanceLine = distance ? `\nEstimativa de distância: ${distance} km` : "";
+      const message = `Olá ${rider.name}! O pedido ${order.id} está pronto para entrega.\n\nCliente: ${order.customerName}\nEndereço: ${order.address}${distanceLine}\nPedido: ${items}\n\nRota: ${route}`;
       await dispatchWhatsAppMessage(rider.phone, message);
     }
 
@@ -2578,10 +2612,9 @@
           });
           const data = await resp.json().catch(() => ({}));
           if (!resp.ok) throw new Error(data.error || "Falha ao enviar mensagem.");
-          if (data.deliveryConfirmed === false) throw new Error(data.error || "O WhatsApp não confirmou a entrega da mensagem.");
-          if (!silent) showToast(`Mensagem entregue para ${phone}!`, "success");
-        } catch (e) { if (!silent) showToast(e.message, "error"); }
-        return;
+          if (!silent) showToast(data.deliveryConfirmed === true ? `WhatsApp confirmou a entrega para ${phone}.` : `O WhatsApp aceitou o envio para ${phone}, mas não confirmou a entrega. Confira com o destinatário.`, data.deliveryConfirmed === true ? "success" : "warning");
+          return data;
+        } catch (e) { if (!silent) showToast(e.message, "error"); return { ok: false, error: e.message }; }
       }
     }
     function clearSimChat() { document.getElementById("wa-sim-messages").replaceChildren(); }
@@ -2696,6 +2729,7 @@
       document.getElementById("set-eta").value = s.eta; document.getElementById("set-pickup-eta").value = s.pickupEta || "25 min";
       document.getElementById("set-color").value = s.primaryColor;
       document.getElementById("set-address").value = s.address; document.getElementById("set-hours").value = s.hours;
+      document.getElementById("set-store-cep").value = formatCep(s.storeCep || "");
     }
     async function saveStoreSettings(e) {
       e.preventDefault();
@@ -2706,7 +2740,7 @@
       s.phone = document.getElementById("set-phone").value.trim(); s.pixKey = document.getElementById("set-pix").value.trim();
       s.eta = document.getElementById("set-eta").value.trim(); s.pickupEta = document.getElementById("set-pickup-eta").value.trim() || "25 min";
       s.primaryColor = document.getElementById("set-color").value;
-      s.address = document.getElementById("set-address").value.trim(); s.hours = document.getElementById("set-hours").value.trim();
+      s.address = document.getElementById("set-address").value.trim(); s.storeCep = normalizeCep(document.getElementById("set-store-cep").value); s.hours = document.getElementById("set-hours").value.trim();
       await persistStoreData();
       document.getElementById("admin-sidebar-name").textContent = s.name; document.getElementById("admin-sidebar-logo").src = s.logo;
       showToast("Configurações salvas!", "success");
@@ -2848,7 +2882,7 @@
     Object.assign(window, {
       switchView, enterStoreCatalog, openTrackOrdersModal, closeTrackOrdersModal, searchCustomerOrdersByPhone,
       openStoreInfoModal, renderCustomerMenu, selectCustomerCat, openProductModal, closeProductModal, changeModalQty, handleModalOptionChange, recalcModalPrice, confirmAddModalItem,
-      openCartDrawer, closeCartDrawer, applyCartCoupon, setCartDeliveryMode, setCustomerPayment, toggleCustPaymentInfo, updateDeliveryQuote, changeCustomerCartQty, removeCustomerCartItem, advanceCartCheckout, previousCartStep, finalizeCustomerOrder,
+      openCartDrawer, closeCartDrawer, applyCartCoupon, setCartDeliveryMode, setCustomerPayment, toggleCustPaymentInfo, updateDeliveryQuote, formatCepInput, changeCustomerCartQty, removeCustomerCartItem, advanceCartCheckout, previousCartStep, finalizeCustomerOrder,
       handleAdminLogin, fillDemoLogin, handleAdminLogout, switchAdminTab, openStorePublicLink, copyCurrentStoreUrl, toggleStoreOpen, setOrderFilter,
       advanceOrderStatus, openOrderDetailModal, closeOrderDetailModal, printOrderReceipt, renderPdvCatalog, selectPdvCategory, handlePdvItemClick, removePdvCartItem, clearPdvCart,
       switchPdvView, addMotoboy, removeMotoboy, addDeliveryZone, removeDeliveryZone, renderPdvLogistics, saveOrderCourier, sendRiderRoute,
