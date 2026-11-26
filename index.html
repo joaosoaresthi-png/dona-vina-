@@ -159,7 +159,36 @@
     .option-item-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--border); cursor: pointer; }
     .option-item-row:last-child { border-bottom: none; }
     .drawer-backdrop { position: fixed; inset: 0; background: rgba(15,23,42,0.55); z-index: 110; display: flex; justify-content: flex-end; }
-    .drawer-panel { width: 100%; max-width: 440px; background: var(--surface); height: 100%; display: flex; flex-direction: column; box-shadow: -10px 0 30px rgba(0,0,0,0.15); }
+    .drawer-panel { width: 100%; max-width: 480px; background: var(--surface); height: 100%; display: flex; flex-direction: column; box-shadow: -10px 0 30px rgba(0,0,0,0.15); }
+    .cart-checkout-progress { display:grid; grid-template-columns:repeat(4,1fr); gap:5px; padding:0 20px 12px; }
+    .cart-checkout-progress span { height:4px; border-radius:99px; background:#E2E8F0; }
+    .cart-checkout-progress span.active { background:var(--primary); }
+    .cart-step-caption { color:var(--text-muted); font-size:.78rem; font-weight:650; margin:-4px 0 16px; }
+    .cart-step-title { font:800 1.1rem 'Plus Jakarta Sans',sans-serif; margin-bottom:4px; }
+    .cart-mode-choice { text-align:left; min-height:58px; padding:10px 12px; }
+    .cart-payment-choice { width:100%; display:flex; justify-content:space-between; align-items:center; padding:13px 14px; border:1px solid var(--border); border-radius:12px; margin:8px 0; text-align:left; color:var(--text-main); background:#fff; }
+    .cart-payment-choice.active { border-color:var(--primary); background:var(--primary-light); box-shadow:0 0 0 1px var(--primary); }
+    .cart-payment-choice span:last-child { width:19px;height:19px;border:2px solid #CBD5E1;border-radius:50%;display:grid;place-items:center; }
+    .cart-payment-choice.active span:last-child { border-color:var(--primary); }
+    .cart-payment-choice.active span:last-child::after { content:'';width:9px;height:9px;border-radius:50%;background:var(--primary); }
+    .cart-checkout-summary { background:#F8FAFC; padding:12px; border-radius:12px; font-size:.86rem; }
+    .cart-step-panel { display:none; }
+    .cart-step-panel.active { display:block; }
+    @media (max-width:600px) {
+      .floating-cart-bar { bottom:max(12px,env(safe-area-inset-bottom)); width:calc(100% - 24px); max-width:480px; border-radius:13px; padding:13px 16px; }
+      .drawer-backdrop { align-items:flex-end; }
+      .drawer-panel { max-width:none; height:min(92dvh,900px); border-radius:22px 22px 0 0; overflow:hidden; padding-bottom:env(safe-area-inset-bottom); }
+      #cart-drawer .modal-header { padding:15px 18px 12px; }
+      #cart-drawer .modal-body { padding:16px 18px; }
+      #cart-drawer .modal-footer { padding:12px 18px; }
+      #cart-drawer .address-box-grid > div[style*="grid-template-columns"] { grid-template-columns:1fr !important; }
+      .cart-checkout-progress { padding:0 18px 12px; }
+      #product-modal { align-items:flex-end; padding:0; }
+      #product-modal .modal-box { max-height:94dvh; border-radius:20px 20px 0 0; padding-bottom:env(safe-area-inset-bottom); }
+      #product-modal .modal-body { padding:16px 18px; }
+      #product-modal .modal-body > img { height:190px !important; }
+      #product-modal .modal-footer { position:sticky; bottom:0; padding:12px 18px; }
+    }
     .media-upload-card { border: 1px dashed #CBD5E1; border-radius: 12px; padding: 12px; background: #F8FAFC; display: flex; gap: 12px; align-items: center; }
     .media-preview-box { width: 74px; height: 74px; border-radius: 12px; overflow: hidden; background: #E2E8F0; flex-shrink: 0; border: 1px solid var(--border); }
     .media-preview-box.wide { width: 116px; height: 70px; }
@@ -271,6 +300,8 @@
       .pdv-switcher { width: 100%; }
       .pdv-switcher button { flex: 1; }
       .dispatch-order { padding: 12px; }
+      #pdv-view-logistics form[onsubmit="addDeliveryZone(event)"] { grid-template-columns: 1fr 1fr !important; }
+      #pdv-view-logistics form[onsubmit="addDeliveryZone(event)"] > button { grid-column: 1 / -1; }
     }
   </style>
 </head>
@@ -424,8 +455,6 @@
         </div>
         <div class="store-meta-bar">
           <span class="store-meta-item"><i data-lucide="clock" style="width:14px;height:14px;"></i> <span id="cust-eta">35-50 min</span></span>
-          <span class="store-meta-item"><i data-lucide="bike" style="width:14px;height:14px;"></i> Entrega <span id="cust-delivery-fee">R$ 6,00</span></span>
-          <span class="store-meta-item"><i data-lucide="sparkles" style="width:14px;height:14px;color:#16A34A;"></i> Grátis acima de <span id="cust-free-above">R$ 80,00</span></span>
         </div>
       </div>
       <div id="cust-closed-banner" class="closed-alert-banner hidden">
@@ -619,6 +648,19 @@
         </div>
         </div>
         <div id="pdv-view-logistics" class="hidden">
+          <div class="panel-card" style="margin-bottom:18px;">
+            <h3 style="font-size:1.08rem;font-weight:800;">Entrega por CEP e distância</h3>
+            <p style="font-size:.82rem;color:var(--text-muted);margin:4px 0 14px;">Associe cada faixa de CEP a uma distância em quilômetros e à respectiva taxa. A cobertura é conferida pelo CEP informado no checkout, sem usar bairros.</p>
+            <form onsubmit="addDeliveryZone(event)" style="display:grid;grid-template-columns:repeat(4,minmax(120px,1fr)) auto;gap:9px;align-items:end;margin-bottom:12px;">
+              <div><label class="form-label" for="delivery-zone-cep-start">CEP inicial</label><input id="delivery-zone-cep-start" type="text" class="form-input" inputmode="numeric" maxlength="9" oninput="formatCepInput(this)" required placeholder="83000-000" /></div>
+              <div><label class="form-label" for="delivery-zone-cep-end">CEP final</label><input id="delivery-zone-cep-end" type="text" class="form-input" inputmode="numeric" maxlength="9" oninput="formatCepInput(this)" required placeholder="83009-999" /></div>
+              <div><label class="form-label" for="delivery-zone-distance">Distância estimada (km)</label><input id="delivery-zone-distance" type="number" class="form-input" min="0.1" step="0.1" required placeholder="Ex.: 3" /></div>
+              <div><label class="form-label" for="delivery-zone-fee">Taxa (R$)</label><input id="delivery-zone-fee" type="number" class="form-input" min="0" step="0.01" required placeholder="Ex.: 6,00" /></div>
+              <button type="submit" class="btn btn-primary">Adicionar faixa</button>
+            </form>
+            <p style="font-size:.76rem;color:var(--text-muted);">A distância cadastrada é uma estimativa atribuída à faixa de CEP. O cálculo de quilometragem real de rua exige geolocalização por serviço externo.</p>
+            <div id="pdv-delivery-zones"></div>
+          </div>
           <div class="logistics-layout">
             <div class="panel-card">
               <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
@@ -728,8 +770,9 @@
               </div>
               <div class="form-group"><label class="form-label">1. Confirmação ao Receber Pedido</label><textarea id="tpl-confirmacao" class="form-textarea" rows="2"></textarea></div>
               <div class="form-group"><label class="form-label">2. Pedido Aceito / Em Preparo</label><textarea id="tpl-preparo" class="form-textarea" rows="2"></textarea></div>
-              <div class="form-group"><label class="form-label">3. Saiu para Entrega</label><textarea id="tpl-entrega" class="form-textarea" rows="2"></textarea></div>
-              <div class="form-group" style="margin-bottom:0;"><label class="form-label">4. Pedido Concluído</label><textarea id="tpl-concluido" class="form-textarea" rows="2"></textarea></div>
+              <div class="form-group"><label class="form-label">3. Pedido Pronto</label><textarea id="tpl-pronto" class="form-textarea" rows="2"></textarea></div>
+              <div class="form-group"><label class="form-label">4. Saiu para Entrega</label><textarea id="tpl-entrega" class="form-textarea" rows="2"></textarea></div>
+              <div class="form-group" style="margin-bottom:0;"><label class="form-label">5. Pedido Concluído</label><textarea id="tpl-concluido" class="form-textarea" rows="2"></textarea></div>
             </div>
           </div>
           <div>
@@ -805,14 +848,13 @@
               <div class="form-group"><label class="form-label">Subtítulo</label><input type="text" id="set-subtitle" class="form-input" /></div>
               <div class="form-group"><label class="form-label">WhatsApp da Loja (com DDD)</label><input type="text" id="set-phone" class="form-input" required /></div>
               <div class="form-group"><label class="form-label">Chave Pix</label><input type="text" id="set-pix" class="form-input" /></div>
-              <div class="form-group"><label class="form-label">Taxa de Entrega (R$)</label><input type="number" step="0.5" id="set-fee" class="form-input" /></div>
-              <div class="form-group"><label class="form-label">Frete Grátis Acima de (R$)</label><input type="number" step="1" id="set-free-above" class="form-input" /></div>
               <div class="form-group"><label class="form-label">Tempo Entrega (ex: 35-50 min)</label><input type="text" id="set-eta" class="form-input" /></div>
               <div class="form-group"><label class="form-label">Tempo Retirada (ex: 25 min)</label><input type="text" id="set-pickup-eta" class="form-input" placeholder="25 min" /></div>
               <div class="form-group"><label class="form-label">Cor Principal</label><input type="color" id="set-color" class="form-input" style="height:42px;padding:4px;" /></div>
               <div class="form-group"><label class="form-label">Horário de Funcionamento</label><input type="text" id="set-hours" class="form-input" /></div>
             </div>
-            <div class="form-group"><label class="form-label">Endereço Completo</label><input type="text" id="set-address" class="form-input" /></div>
+              <div class="form-group"><label class="form-label">Endereço exato da loja (origem das rotas)</label><input type="text" id="set-address" class="form-input" placeholder="Rua, número, bairro, cidade e UF" /></div>
+              <div class="form-group"><label class="form-label">CEP da loja</label><input type="text" id="set-store-cep" class="form-input" inputmode="numeric" maxlength="9" oninput="formatCepInput(this)" placeholder="00000-000" /></div>
             <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-top:16px;">
               <button type="submit" class="btn btn-primary">Salvar Configurações na Nuvem</button>
               <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -932,61 +974,86 @@
 
   <div id="cart-drawer" class="drawer-backdrop hidden" onclick="if(event.target===this) closeCartDrawer()">
     <div class="drawer-panel">
-      <div class="modal-header"><h3>Sua Sacola</h3><button type="button" class="modal-close" onclick="closeCartDrawer()"><i data-lucide="x" style="width:18px;height:18px;"></i></button></div>
+      <div class="modal-header"><div><h3 id="cart-drawer-title">Sua Sacola</h3><small id="cart-drawer-subtitle" style="color:var(--text-muted);font-size:.76rem;">Revise seus itens antes de continuar</small></div><button type="button" class="modal-close" aria-label="Fechar sacola" onclick="closeCartDrawer()"><i data-lucide="x" style="width:18px;height:18px;"></i></button></div>
+      <div id="cart-progress" class="cart-checkout-progress hidden" aria-label="Etapas do pedido"><span></span><span></span><span></span><span></span></div>
       <div class="modal-body">
         <div id="cart-success-screen" class="hidden" style="text-align:center;padding:28px 12px;">
           <h3 style="font-size:1.25rem;font-weight:800;color:var(--success);">Pedido Confirmado!</h3>
           <p id="cart-success-code" style="font-size:0.9rem;font-weight:700;color:var(--primary);margin-top:6px;"></p>
-          <p style="font-size:0.84rem;color:var(--text-muted);margin-top:8px;">Seu pedido chegou na cozinha e a confirmação foi enviada para o seu WhatsApp!</p>
+          <div style="margin-top:18px;text-align:left;padding:14px;border:1px solid var(--border);border-radius:14px;background:#fff;font-size:.82rem;">
+            <strong>Itens</strong><div id="cart-success-items" style="margin:8px 0 12px;color:#475569;"></div>
+            <strong>Entrega</strong><div id="cart-success-address" style="margin:6px 0 12px;color:#475569;"></div>
+            <div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);padding-top:10px;"><span id="cart-success-payment"></span><strong id="cart-success-total" style="color:var(--primary);"></strong></div>
+          </div>
+          <p style="font-size:0.84rem;color:var(--text-muted);margin-top:12px;">Pedido registrado para a loja. Guarde o código para acompanhar o andamento.</p>
           <button type="button" class="btn btn-dark" style="width:100%;margin-top:16px;" onclick="closeCartDrawer(); openTrackOrdersModal();">Acompanhar Meu Pedido Agora</button>
           <button type="button" class="btn btn-outline" style="width:100%;margin-top:8px;" onclick="closeCartDrawer()">Voltar ao Cardápio</button>
         </div>
-        <div id="cart-items-list"></div>
-        <div id="cart-checkout-fields" class="hidden" style="margin-top:18px;padding-top:16px;border-top:1px solid var(--border);">
-          <div class="form-group">
-            <label class="form-label">Cupom de Desconto</label>
-            <div style="display:flex;gap:8px;"><input type="text" id="cart-coupon-input" class="form-input" placeholder="BEMVINDO10" style="text-transform:uppercase;" /><button type="button" class="btn btn-dark btn-sm" onclick="applyCartCoupon()">Aplicar</button></div>
-            <div id="cart-coupon-msg" style="font-size:0.78rem;margin-top:4px;font-weight:600;"></div>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Entrega ou Retirada?</label>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-              <button type="button" id="btn-mode-delivery" class="btn btn-primary btn-sm" onclick="setCartDeliveryMode('delivery')">Entrega Delivery</button>
-              <button type="button" id="btn-mode-pickup" class="btn btn-outline btn-sm" onclick="setCartDeliveryMode('pickup')">Retirar no Local</button>
+        <div id="cart-items-list" class="cart-step-panel active" data-cart-step="cart"></div>
+        <div id="cart-checkout-fields" class="hidden" style="margin-top:0;">
+          <section id="cart-step-cart" class="cart-step-panel" data-cart-step="cart">
+            <div class="cart-step-title">Como quer receber?</div>
+            <p class="cart-step-caption">Escolha entrega em casa ou retirada no balcão.</p>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;">
+              <button type="button" id="btn-mode-delivery" class="btn btn-outline cart-mode-choice" onclick="setCartDeliveryMode('delivery')"><span>🛵 Entrega</span><small style="display:block;color:var(--text-muted);font-weight:500;">Receba em casa</small></button>
+              <button type="button" id="btn-mode-pickup" class="btn btn-outline cart-mode-choice" onclick="setCartDeliveryMode('pickup')"><span>🛍 Retirada</span><small style="display:block;color:var(--text-muted);font-weight:500;">Busque na loja</small></button>
             </div>
-          </div>
-          <div class="form-group"><label class="form-label">Seu Nome *</label><input type="text" id="cust-order-name" class="form-input" /></div>
-          <div class="form-group"><label class="form-label">Seu WhatsApp *</label><input type="text" id="cust-order-phone" class="form-input" placeholder="(41) 99999-9999" /></div>
-
-          <div id="cust-address-wrap" class="address-box-grid">
+            <div class="form-group">
+              <label class="form-label">Tem um cupom?</label>
+              <div style="display:flex;gap:8px;"><input type="text" id="cart-coupon-input" class="form-input" placeholder="Digite seu cupom" style="text-transform:uppercase;" /><button type="button" class="btn btn-dark btn-sm" onclick="applyCartCoupon()">Aplicar</button></div>
+              <div id="cart-coupon-msg" style="font-size:0.78rem;margin-top:4px;font-weight:600;"></div>
+            </div>
+            <div class="cart-checkout-summary">
+              <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span>Subtotal</span><span id="checkout-sub">R$ 0,00</span></div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span>Taxa de entrega</span><span id="checkout-fee">A definir</span></div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:6px;color:var(--success);"><span>Desconto</span><span id="checkout-disc">- R$ 0,00</span></div>
+              <div style="display:flex;justify-content:space-between;font-weight:800;font-size:1rem;padding-top:8px;border-top:1px dashed var(--border);"><span>Total parcial</span><span id="checkout-total" style="color:var(--primary);">—</span></div>
+            </div>
+          </section>
+          <section id="cart-step-contact" class="cart-step-panel" data-cart-step="contact">
+            <div class="cart-step-title">Seus dados</div><p class="cart-step-caption">Usaremos seu WhatsApp para enviar atualizações do pedido.</p>
+            <div class="form-group"><label class="form-label" for="cust-order-name">Seu nome *</label><input type="text" id="cust-order-name" class="form-input" autocomplete="name" placeholder="Como podemos chamar você?" /></div>
+            <div class="form-group"><label class="form-label" for="cust-order-phone">WhatsApp com DDD *</label><input type="tel" id="cust-order-phone" class="form-input" autocomplete="tel" inputmode="tel" placeholder="(41) 99999-9999" /></div>
+            <div style="padding:12px;border-radius:12px;background:#F8FAFC;color:var(--text-muted);font-size:.8rem;">Confira o número: as confirmações e atualizações serão enviadas para ele.</div>
+          </section>
+          <section id="cart-step-address" class="cart-step-panel" data-cart-step="address">
+            <div class="cart-step-title">Onde entregamos?</div><p class="cart-step-caption">A taxa aparece depois que você informa o bairro.</p>
+            <div id="cust-address-wrap" class="address-box-grid">
             <div style="font-size:0.78rem;font-weight:800;margin-bottom:8px;color:#334155;">Endereço Completo de Entrega</div>
+            <div style="margin-bottom:8px;"><label class="form-label" for="cust-addr-cep">CEP *</label><input type="text" id="cust-addr-cep" class="form-input" inputmode="numeric" autocomplete="postal-code" maxlength="9" oninput="formatCepInput(this);updateDeliveryQuote()" placeholder="00000-000" /></div>
             <div style="display:grid;grid-template-columns:2fr 0.8fr;gap:8px;margin-bottom:8px;">
-              <div><label class="form-label">Rua / Avenida *</label><input type="text" id="cust-addr-street" class="form-input" placeholder="Ex: Rua Ernesto José de Paula" /></div>
-              <div><label class="form-label">Número *</label><input type="text" id="cust-addr-number" class="form-input" placeholder="Ex: 420" /></div>
+              <div><label class="form-label">Rua / Avenida *</label><input type="text" id="cust-addr-street" class="form-input" oninput="updateDeliveryQuote()" placeholder="Digite a rua ou avenida" /></div>
+              <div><label class="form-label">Número *</label><input type="text" id="cust-addr-number" class="form-input" oninput="updateDeliveryQuote()" placeholder="Número do imóvel" /></div>
             </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
-              <div><label class="form-label">Bairro *</label><input type="text" id="cust-addr-neighborhood" class="form-input" placeholder="Ex: São Marcos" /></div>
-              <div><label class="form-label">Complemento / Apto</label><input type="text" id="cust-addr-complement" class="form-input" placeholder="Casa 2, Bloco B..." /></div>
-            </div>
+            <div style="margin-bottom:8px;"><label class="form-label" for="cust-addr-complement">Complemento / Apto</label><input type="text" id="cust-addr-complement" class="form-input" placeholder="Casa 2, Bloco B..." /></div>
             <div><label class="form-label">Ponto de Referência</label><input type="text" id="cust-addr-reference" class="form-input" placeholder="Próximo ao mercado / portão preto..." /></div>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Pagamento</label>
-            <select id="cust-order-payment" class="form-select" onchange="toggleCustPaymentInfo()"><option value="Pix">Pix</option><option value="Cartão de Crédito">Cartão na Entrega</option><option value="Dinheiro">Dinheiro</option></select>
-          </div>
-          <div id="cust-pix-box" style="background:#F0FDF4;border:1px solid #BBF7D0;padding:10px;border-radius:10px;font-size:0.8rem;margin-bottom:12px;"><strong>Chave Pix:</strong> <span id="cust-pix-key-display"></span></div>
-          <div id="cust-change-box" class="form-group hidden"><label class="form-label">Troco para quanto?</label><input type="number" id="cust-order-change" class="form-input" /></div>
-          <div style="background:#F8FAFC;padding:12px;border-radius:12px;font-size:0.86rem;">
-            <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span>Subtotal</span><span id="checkout-sub">R$ 0,00</span></div>
-            <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span>Taxa Entrega</span><span id="checkout-fee">R$ 0,00</span></div>
-            <div style="display:flex;justify-content:space-between;margin-bottom:6px;color:var(--success);"><span>Desconto</span><span id="checkout-disc">- R$ 0,00</span></div>
-            <div style="display:flex;justify-content:space-between;font-weight:800;font-size:1.05rem;padding-top:6px;border-top:1px solid var(--border);"><span>Total</span><span id="checkout-total" style="color:var(--primary);">R$ 0,00</span></div>
-          </div>
+            <p id="cust-delivery-quote-message" aria-live="polite" style="font-size:.8rem;color:var(--text-muted);margin-top:9px;">Informe rua, número e bairro para consultar a taxa de entrega.</p>
+            </div>
+            <div class="cart-checkout-summary" style="margin-top:14px;"><div style="display:flex;justify-content:space-between;font-weight:800;"><span>Taxa de entrega</span><span id="checkout-fee-address">Aguardando endereço</span></div><p id="checkout-fee-hint" style="font-size:.78rem;color:var(--text-muted);margin-top:5px;">Informe rua, número e bairro para consultar a taxa.</p></div>
+          </section>
+          <section id="cart-step-payment" class="cart-step-panel" data-cart-step="payment">
+            <div class="cart-step-title">Como vai pagar?</div><p class="cart-step-caption">Escolha uma forma de pagamento para finalizar.</p>
+            <input type="hidden" id="cust-order-payment" value="Pix" />
+            <div id="cart-payment-choices">
+              <button type="button" class="cart-payment-choice active" data-payment="Pix" onclick="setCustomerPayment('Pix')"><span>Pix</span><span></span></button>
+              <button type="button" class="cart-payment-choice" data-payment="Cartão de Crédito" onclick="setCustomerPayment('Cartão de Crédito')"><span>Cartão na entrega</span><span></span></button>
+              <button type="button" class="cart-payment-choice" data-payment="Dinheiro" onclick="setCustomerPayment('Dinheiro')"><span>Dinheiro</span><span></span></button>
+            </div>
+            <div id="cust-pix-box" style="background:#F0FDF4;border:1px solid #BBF7D0;padding:12px;border-radius:10px;font-size:0.82rem;margin:12px 0;"><strong>Chave Pix:</strong> <span id="cust-pix-key-display"></span></div>
+            <div id="cust-change-box" class="form-group hidden"><label class="form-label" for="cust-order-change">Precisa de troco? Informe para quanto</label><input type="number" id="cust-order-change" class="form-input" min="0" step="0.01" placeholder="Ex.: 100,00" /><button type="button" class="btn btn-outline btn-sm" style="margin-top:8px;" onclick="document.getElementById('cust-order-change').value='';">Não preciso de troco</button></div>
+            <div class="cart-checkout-summary" style="margin-top:16px;">
+              <div id="checkout-address-payment" style="font-size:.8rem;color:var(--text-muted);margin-bottom:10px;"></div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span>Subtotal</span><span id="checkout-sub-payment">R$ 0,00</span></div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span>Taxa de entrega</span><span id="checkout-fee-payment">A definir</span></div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:8px;color:var(--success);"><span>Desconto</span><span id="checkout-disc-payment">- R$ 0,00</span></div>
+              <div style="display:flex;justify-content:space-between;font-weight:800;font-size:1.12rem;padding-top:8px;border-top:1px dashed var(--border);"><span>Total</span><span id="checkout-total-payment" style="color:var(--primary);">—</span></div>
+            </div>
+          </section>
         </div>
       </div>
       <div id="cart-drawer-footer" class="modal-footer hidden">
-        <button type="button" class="btn btn-whatsapp" style="width:100%;padding:13px;" onclick="finalizeCustomerOrder()">Confirmar Pedido Agora</button>
+        <button type="button" id="cart-step-back" class="btn btn-outline hidden" onclick="previousCartStep()">Voltar</button>
+        <button type="button" id="cust-submit-order" class="btn btn-primary" style="width:100%;padding:13px;" onclick="advanceCartCheckout()">Continuar</button>
       </div>
     </div>
   </div>
@@ -1122,6 +1189,7 @@
           provider: "railway_bridge", apiUrl: "https://dona-vina-production.up.railway.app",
           tplConfirmacao: "Olá {cliente}! ✅ Recebemos seu pedido *{pedido}*!\n\n*Itens:* {itens}\n*Total:* {total}\n*Previsão:* {tempo}. Já vamos preparar!",
           tplPreparo: "Olá {cliente}! Seu pedido {pedido} foi ACEITO! 🍔 Já está em preparo. Tempo estimado: {tempo}.",
+          tplPronto: "Olá {cliente}! Seu pedido {pedido} está pronto para sair. 🍔",
           tplEntrega: "Boa notícia {cliente}! Seu pedido {pedido} SAIU PARA ENTREGA! 🛵 Endereço: {endereco}.",
           tplConcluido: "Pedido {pedido} CONCLUÍDO! 🎉 Obrigado pela preferência!",
           botEnabled: true,
@@ -1143,8 +1211,10 @@
     let unsubscribeOrders = null;
     let unsubscribeTrackOrders = null;
     let publicViewStage = "welcome";
-    let activeCustomerCat = "all";
+    let activeCustomerCat = null;
     let customerCart = [];
+    let cartCheckoutStep = "cart";
+    let isSubmittingCustomerOrder = false;
     let appliedCoupon = null;
     let cartDeliveryMode = "delivery";
     let modalContext = { product: null, qty: 1, target: "customer" };
@@ -1225,14 +1295,51 @@
       }).filter(g => g.options.length > 0);
     }
 
+    function normalizeCategoryKey(value) {
+      return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().replace(/\s+/g, " ").toLowerCase();
+    }
+
+    function normalizeCep(value) { return String(value || "").replace(/\D/g, "").slice(0, 8); }
+    function formatCep(value) {
+      const digits = normalizeCep(value);
+      return digits.length === 8 ? `${digits.slice(0, 5)}-${digits.slice(5)}` : String(value || "");
+    }
+    function formatCepInput(input) {
+      const digits = normalizeCep(input.value);
+      input.value = digits.length > 5 ? `${digits.slice(0, 5)}-${digits.slice(5)}` : digits;
+    }
+
+    function normalizeStoreMenu(store) {
+      const categories = (Array.isArray(store.categories) ? store.categories : []).map((category, index) => {
+        const name = String(category.name || category.title || category.label || "").trim();
+        const slug = normalizeCategoryKey(name).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || `categoria-${index + 1}`;
+        return { ...category, id: String(category.id || `cat-${slug}`), name };
+      });
+      const byId = new Map(categories.map(category => [String(category.id), category]));
+      const byName = new Map(categories.map(category => [normalizeCategoryKey(category.name), category]));
+      const products = (Array.isArray(store.products) ? store.products : []).map(product => {
+        const category = byId.get(String(product.categoryId || "")) || byName.get(normalizeCategoryKey(product.category || product.categoryName || product.categoryId));
+        return {
+          ...product,
+          id: product.id == null ? product.id : String(product.id),
+          categoryId: category?.id || product.categoryId || "",
+          desc: product.desc ?? product.description ?? "",
+          available: product.available !== false,
+          optionGroups: normalizeProductOptionGroups(product)
+        };
+      });
+      return { ...store, categories, products };
+    }
+
     function buildFormattedAddress(prefix) {
+      const cep = document.getElementById(`${prefix}-addr-cep`)?.value || "";
       const street = (document.getElementById(`${prefix}-addr-street`)?.value || "").trim();
       const number = (document.getElementById(`${prefix}-addr-number`)?.value || "").trim();
       const neighborhood = (document.getElementById(`${prefix}-addr-neighborhood`)?.value || "").trim();
       const complement = (document.getElementById(`${prefix}-addr-complement`)?.value || "").trim();
       const reference = (document.getElementById(`${prefix}-addr-reference`)?.value || "").trim();
       if (!street) return "";
-      let line = `${street}${number ? ", nº " + number : ""}${neighborhood ? " - Bairro: " + neighborhood : ""}`;
+      let line = `${street}${number ? ", nº " + number : ""}${neighborhood ? " - Bairro: " + neighborhood : ""}${normalizeCep(cep).length === 8 ? " · CEP " + formatCep(cep) : ""}`;
       if (complement) line += ` (${complement})`;
       if (reference) line += ` | Ref: ${reference}`;
       return line;
@@ -1331,24 +1438,24 @@
         if (parsed.logo) currentStore.logo = parsed.logo;
         if (parsed.banner) currentStore.banner = parsed.banner;
 
-        const normalizedProducts = parsed.products.map((p, idx) => ({
-          ...p,
-          id: p.id || `prod-imp-${Date.now()}-${idx}`,
-          available: p.available !== false,
-          optionGroups: normalizeProductOptionGroups(p)
-        }));
+        const importedMenu = normalizeStoreMenu({
+          categories: parsed.categories,
+          products: parsed.products.map((p, idx) => ({ ...p, id: p.id || `prod-imp-${Date.now()}-${idx}` }))
+        });
 
         if (replace) {
-          currentStore.categories = parsed.categories;
-          currentStore.products = normalizedProducts;
+          currentStore.categories = importedMenu.categories;
+          currentStore.products = importedMenu.products;
         } else {
-          currentStore.categories = [...(currentStore.categories || []), ...parsed.categories];
-          currentStore.products = [...(currentStore.products || []), ...normalizedProducts];
+          const existingMenu = normalizeStoreMenu(currentStore);
+          currentStore.categories = [...existingMenu.categories, ...importedMenu.categories];
+          currentStore.products = [...existingMenu.products, ...importedMenu.products];
         }
+        currentStore = normalizeStoreMenu(currentStore);
         await persistStoreData();
         closeImportMenuModal();
         initAdminDashboard();
-        showToast(`Cardápio importado (${normalizedProducts.length} produtos)!`, "success");
+        showToast(`Cardápio importado (${importedMenu.products.length} produtos)!`, "success");
       } catch (err) {
         showToast("Erro no formato JSON: " + err.message, "error");
       }
@@ -1368,7 +1475,7 @@
             return;
           }
         } else {
-          currentStore = { slug, ...snap.data() };
+          currentStore = normalizeStoreMenu({ slug, ...snap.data() });
         }
         applyBrandTheme();
 
@@ -1592,7 +1699,7 @@
                 ${o.type === "delivery" ? "🛵 " + o.address : "🛍️ Retirada no Balcão"}
               </div>
               <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);font-size:0.84rem;">
-                <span>Pagamento: <strong>${o.payment}</strong></span>
+                <span>Pagamento: <strong>${o.payment}</strong>${o.changeFor ? `<small style="display:block;color:var(--text-muted);">Troco para ${formatBRL(o.changeFor)}</small>` : ""}</span>
                 <strong style="color:var(--success);">${formatBRL(o.total)}</strong>
               </div>
             </div>`;
@@ -1608,8 +1715,6 @@
       document.getElementById("cust-store-name").textContent = s.name;
       document.getElementById("cust-store-subtitle").textContent = s.subtitle;
       document.getElementById("cust-eta").textContent = s.eta;
-      document.getElementById("cust-delivery-fee").textContent = formatBRL(s.deliveryFee);
-      document.getElementById("cust-free-above").textContent = formatBRL(s.freeDeliveryAbove);
 
       const badge = document.getElementById("cust-status-badge");
       const closedAlert = document.getElementById("cust-closed-banner");
@@ -1617,9 +1722,10 @@
       badge.innerHTML = s.isOpen ? '<span class="pulse-dot"></span> Aberto agora' : '<span class="pulse-dot"></span> Loja Fechada';
       closedAlert.classList.toggle("hidden", s.isOpen);
 
-      document.getElementById("cust-category-tabs").innerHTML =
-        `<button type="button" class="cat-tab ${activeCustomerCat === "all" ? "active" : ""}" onclick="selectCustomerCat('all')">Todos</button>` +
-        (s.categories || []).map(c => `<button type="button" class="cat-tab ${activeCustomerCat === c.id ? "active" : ""}" onclick="selectCustomerCat('${c.id}')">${c.name}</button>`).join("");
+      const categories = s.categories || [];
+      if (!categories.some(category => category.id === activeCustomerCat)) activeCustomerCat = categories[0]?.id || null;
+      document.getElementById("cust-category-tabs").innerHTML = categories
+        .map(c => `<button type="button" class="cat-tab ${activeCustomerCat === c.id ? "active" : ""}" onclick="selectCustomerCat('${c.id}')">${c.name}</button>`).join("");
 
       renderCustomerMenu();
       updateFloatingCartBar();
@@ -1630,7 +1736,7 @@
 
     function renderCustomerMenu() {
       const q = (document.getElementById("cust-search-input").value || "").toLowerCase().trim();
-      const cats = activeCustomerCat === "all" ? (currentStore.categories || []) : (currentStore.categories || []).filter(c => c.id === activeCustomerCat);
+      const cats = (currentStore.categories || []).filter(c => c.id === activeCustomerCat);
       let html = "";
       cats.forEach(cat => {
         const items = (currentStore.products || []).filter(p => p.available && p.categoryId === cat.id && (!q || p.name.toLowerCase().includes(q) || (p.desc || "").toLowerCase().includes(q)));
@@ -1664,7 +1770,7 @@
 
     function openProductModal(productId, target = "customer") {
       if (target === "customer" && !currentStore.isOpen) { showToast("A loja está fechada no momento.", "warning"); return; }
-      const product = (currentStore.products || []).find(p => p.id === productId);
+      const product = (currentStore.products || []).find(p => String(p.id) === String(productId));
       if (!product) return;
       const groups = normalizeProductOptionGroups(product);
       modalContext = { product: { ...product, optionGroups: groups }, qty: 1, target };
@@ -1744,6 +1850,7 @@
 
     function openCartDrawer() {
       document.getElementById("cart-success-screen").classList.add("hidden");
+      cartCheckoutStep = "cart";
       document.getElementById("cust-pix-key-display").textContent = currentStore.pixKey;
       const savedPhone = localStorage.getItem("last_customer_whatsapp");
       if (savedPhone && !document.getElementById("cust-order-phone").value) {
@@ -1756,15 +1863,65 @@
     function closeCartDrawer() { document.getElementById("cart-drawer").classList.add("hidden"); }
     function setCartDeliveryMode(mode) {
       cartDeliveryMode = mode;
-      document.getElementById("btn-mode-delivery").className = mode === "delivery" ? "btn btn-primary btn-sm" : "btn btn-outline btn-sm";
-      document.getElementById("btn-mode-pickup").className = mode === "pickup" ? "btn btn-primary btn-sm" : "btn btn-outline btn-sm";
+      document.getElementById("btn-mode-delivery").classList.toggle("active", mode === "delivery");
+      document.getElementById("btn-mode-pickup").classList.toggle("active", mode === "pickup");
+      document.getElementById("btn-mode-delivery").classList.toggle("btn-primary", mode === "delivery");
+      document.getElementById("btn-mode-pickup").classList.toggle("btn-primary", mode === "pickup");
       document.getElementById("cust-address-wrap").classList.toggle("hidden", mode !== "delivery");
       renderCartDrawer();
+    }
+    function setCustomerPayment(method) {
+      document.getElementById("cust-order-payment").value = method;
+      document.querySelectorAll(".cart-payment-choice").forEach(button => button.classList.toggle("active", button.dataset.payment === method));
+      toggleCustPaymentInfo();
     }
     function toggleCustPaymentInfo() {
       const pay = document.getElementById("cust-order-payment").value;
       document.getElementById("cust-pix-box").classList.toggle("hidden", pay !== "Pix");
       document.getElementById("cust-change-box").classList.toggle("hidden", pay !== "Dinheiro");
+    }
+    function setCartCheckoutStep(step) {
+      cartCheckoutStep = step;
+      const steps = ["cart", "contact", cartDeliveryMode === "delivery" ? "address" : null, "payment"].filter(Boolean);
+      const currentIndex = steps.indexOf(step);
+      document.querySelectorAll("#cart-drawer [data-cart-step]").forEach(panel => panel.classList.toggle("active", panel.dataset.cartStep === step));
+      const progress = document.getElementById("cart-progress");
+      progress.classList.toggle("hidden", step === "cart");
+      progress.querySelectorAll("span").forEach((bar, index) => {
+        bar.style.display = index < steps.length ? "block" : "none";
+        bar.classList.toggle("active", index <= currentIndex);
+      });
+      const titles = { cart: ["Sua Sacola", "Revise seus itens antes de continuar"], contact: ["Seus dados", "Contato para acompanhar o pedido"], address: ["Endereço de entrega", "Informe onde o motoboy deve chegar"], payment: ["Pagamento", "Confira o total e finalize seu pedido"] };
+      document.getElementById("cart-drawer-title").textContent = titles[step][0];
+      document.getElementById("cart-drawer-subtitle").textContent = titles[step][1];
+      document.getElementById("cart-step-back").classList.toggle("hidden", step === "cart");
+      const nextButton = document.getElementById("cust-submit-order");
+      nextButton.textContent = step === "payment" ? "Finalizar pedido" : step === "cart" ? "Confirmar pedido" : "Continuar";
+      nextButton.classList.toggle("btn-whatsapp", step === "payment");
+      nextButton.classList.toggle("btn-primary", step !== "payment");
+    }
+    function previousCartStep() {
+      if (cartCheckoutStep === "payment") setCartCheckoutStep(cartDeliveryMode === "delivery" ? "address" : "contact");
+      else if (cartCheckoutStep === "address") setCartCheckoutStep("contact");
+      else if (cartCheckoutStep === "contact") setCartCheckoutStep("cart");
+    }
+    function advanceCartCheckout() {
+      if (cartCheckoutStep === "cart") { setCartCheckoutStep("contact"); return; }
+      if (cartCheckoutStep === "contact") {
+        const name = document.getElementById("cust-order-name").value.trim();
+        const phone = normalizeWhatsAppPhone(document.getElementById("cust-order-phone").value);
+        if (!name) { showToast("Informe seu nome para continuar.", "warning"); document.getElementById("cust-order-name").focus(); return; }
+        if (!/^55\d{10,11}$/.test(phone)) { showToast("Informe um WhatsApp válido com DDD.", "warning"); document.getElementById("cust-order-phone").focus(); return; }
+        localStorage.setItem("last_customer_whatsapp", phone);
+        setCartCheckoutStep(cartDeliveryMode === "delivery" ? "address" : "payment"); return;
+      }
+      if (cartCheckoutStep === "address") {
+        const zone = findCustomerDeliveryZone();
+        if (!customerAddressReady()) { showToast("Informe CEP válido, rua e número.", "warning"); return; }
+        if (!zone) { showToast("Esse CEP não está em uma faixa atendida. Confira ou escolha retirada.", "warning"); return; }
+        setCartCheckoutStep("payment"); return;
+      }
+      finalizeCustomerOrder();
     }
     function applyCartCoupon() {
       const code = (document.getElementById("cart-coupon-input").value || "").toUpperCase().trim();
@@ -1777,83 +1934,154 @@
     }
     function calcCartTotals() {
       const subtotal = customerCart.reduce((s, i) => s + i.unitPrice * i.qty, 0);
-      let fee = cartDeliveryMode === "delivery" ? Number(currentStore.deliveryFee) : 0;
-      if (subtotal >= Number(currentStore.freeDeliveryAbove)) fee = 0;
+      const zone = cartDeliveryMode === "delivery" ? findCustomerDeliveryZone() : null;
+      let fee = cartDeliveryMode === "pickup" ? 0 : zone ? Number(zone.fee) : null;
       let discount = 0;
       if (appliedCoupon) {
         if (appliedCoupon.type === "percent") discount = subtotal * (appliedCoupon.value / 100);
         else if (appliedCoupon.type === "fixed") discount = Math.min(subtotal, appliedCoupon.value);
-        else if (appliedCoupon.type === "shipping") fee = 0;
+        else if (appliedCoupon.type === "shipping" && fee !== null) fee = 0;
       }
-      return { subtotal, fee, discount, total: Math.max(0, subtotal + fee - discount) };
+      return { subtotal, fee, discount, total: fee === null ? null : Math.max(0, subtotal + fee - discount), zone };
     }
+
+    function customerAddressReady() {
+      return Boolean(normalizeCep(document.getElementById("cust-addr-cep")?.value).length === 8 && document.getElementById("cust-addr-street")?.value.trim() && document.getElementById("cust-addr-number")?.value.trim());
+    }
+
+    function findCustomerDeliveryZone() {
+      if (!customerAddressReady()) return null;
+      const cep = Number(normalizeCep(document.getElementById("cust-addr-cep").value));
+      return (currentStore.deliveryZones || []).find(zone => {
+        const start = normalizeCep(zone.cepStart), end = normalizeCep(zone.cepEnd);
+        return start.length === 8 && end.length === 8 && cep >= Number(start) && cep <= Number(end);
+      }) || null;
+    }
+
+    function updateDeliveryQuote() { renderCartDrawer(); }
+
     function renderCartDrawer() {
       const listEl = document.getElementById("cart-items-list");
       const checkoutEl = document.getElementById("cart-checkout-fields");
       const footerEl = document.getElementById("cart-drawer-footer");
       if (!customerCart.length) {
         listEl.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:40px 0;">Sua sacola está vazia.</p>';
-        checkoutEl.classList.add("hidden"); footerEl.classList.add("hidden"); return;
+        checkoutEl.classList.add("hidden"); footerEl.classList.add("hidden"); document.getElementById("cart-progress").classList.add("hidden"); return;
       }
       listEl.innerHTML = customerCart.map((item, idx) => `
         <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);gap:10px;">
           <div>
             <div style="font-weight:700;font-size:0.88rem;">${item.qty}x ${item.name}</div>
             ${item.optionsText ? `<div style="font-size:0.76rem;color:var(--text-muted);">${item.optionsText}</div>` : ""}
+            ${item.notes ? `<div style="font-size:0.76rem;color:#B45309;">Obs: ${item.notes}</div>` : ""}
             <div style="font-weight:700;font-size:0.84rem;color:var(--success);">${formatBRL(item.unitPrice * item.qty)}</div>
           </div>
-          <button type="button" style="color:#DC2626;font-size:0.78rem;font-weight:700;" onclick="removeCustomerCartItem(${idx})">Remover</button>
+          <div style="display:flex;align-items:center;gap:7px;flex-shrink:0;">
+            <button type="button" class="btn btn-outline btn-sm" aria-label="Diminuir quantidade de ${item.name}" onclick="changeCustomerCartQty(${idx},-1)">−</button>
+            <strong>${item.qty}</strong>
+            <button type="button" class="btn btn-outline btn-sm" aria-label="Aumentar quantidade de ${item.name}" onclick="changeCustomerCartQty(${idx},1)">+</button>
+            <button type="button" style="color:#DC2626;font-size:0.78rem;font-weight:700;" onclick="removeCustomerCartItem(${idx})">Remover</button>
+          </div>
         </div>`).join("");
       checkoutEl.classList.remove("hidden"); footerEl.classList.remove("hidden");
-      const { subtotal, fee, discount, total } = calcCartTotals();
+      document.getElementById("btn-mode-delivery").classList.toggle("active", cartDeliveryMode === "delivery");
+      document.getElementById("btn-mode-pickup").classList.toggle("active", cartDeliveryMode === "pickup");
+      document.getElementById("btn-mode-delivery").classList.toggle("btn-primary", cartDeliveryMode === "delivery");
+      document.getElementById("btn-mode-delivery").classList.toggle("btn-outline", cartDeliveryMode !== "delivery");
+      document.getElementById("btn-mode-pickup").classList.toggle("btn-primary", cartDeliveryMode === "pickup");
+      document.getElementById("btn-mode-pickup").classList.toggle("btn-outline", cartDeliveryMode !== "pickup");
+      setCartCheckoutStep(cartCheckoutStep);
+      toggleCustPaymentInfo();
+      const { subtotal, fee, discount, total, zone } = calcCartTotals();
+      const quoteMessage = document.getElementById("cust-delivery-quote-message");
+      if (quoteMessage) {
+        if (cartDeliveryMode === "pickup") quoteMessage.textContent = "Retirada no local sem taxa de entrega.";
+        else if (!customerAddressReady()) quoteMessage.textContent = "Informe CEP, rua e número para consultar a taxa de entrega.";
+        else if (!(currentStore.deliveryZones || []).some(z => z.cepStart && z.cepEnd)) quoteMessage.textContent = "A loja ainda não cadastrou faixas de CEP e distância.";
+        else if (fee === null) quoteMessage.textContent = `O CEP ${formatCep(document.getElementById("cust-addr-cep").value)} não está em uma faixa atendida. Escolha retirada ou confirme com a loja.`;
+        else quoteMessage.textContent = `Distância estimada cadastrada: ${Number(zone.distanceKm || zone.maxKm).toLocaleString("pt-BR")} km · entrega ${formatBRL(fee)}.`;
+      }
       document.getElementById("checkout-sub").textContent = formatBRL(subtotal);
-      document.getElementById("checkout-fee").textContent = fee === 0 ? "Grátis" : formatBRL(fee);
+      document.getElementById("checkout-fee").textContent = fee === null ? "Preencha o endereço" : fee === 0 ? "Grátis" : formatBRL(fee);
       document.getElementById("checkout-disc").textContent = "- " + formatBRL(discount);
-      document.getElementById("checkout-total").textContent = formatBRL(total);
+      document.getElementById("checkout-total").textContent = total === null ? "—" : formatBRL(total);
+      document.getElementById("checkout-fee-address").textContent = fee === null ? "A definir" : fee === 0 ? "Grátis" : formatBRL(fee);
+      document.getElementById("checkout-fee-hint").textContent = cartDeliveryMode === "pickup" ? "Retirada no balcão, sem taxa de entrega." : quoteMessage?.textContent || "Informe seu bairro para consultar a taxa.";
+      document.getElementById("checkout-sub-payment").textContent = formatBRL(subtotal);
+      document.getElementById("checkout-fee-payment").textContent = fee === null ? "—" : fee === 0 ? "Grátis" : formatBRL(fee);
+      document.getElementById("checkout-disc-payment").textContent = "- " + formatBRL(discount);
+      document.getElementById("checkout-total-payment").textContent = total === null ? "—" : formatBRL(total);
+      const paymentAddress = cartDeliveryMode === "pickup" ? "Retirada no balcão" : customerAddressReady() ? buildFormattedAddress("cust") : "Endereço ainda não informado";
+      const distanceSummary = cartDeliveryMode === "delivery" && zone ? `Estimativa: ${Number(zone.distanceKm || zone.maxKm).toLocaleString("pt-BR")} km` : "";
+      document.getElementById("checkout-address-payment").textContent = [paymentAddress, distanceSummary].filter(Boolean).join(" · ");
     }
+    function changeCustomerCartQty(idx, delta) { const item = customerCart[idx]; if (!item) return; item.qty += delta; if (item.qty < 1) customerCart.splice(idx, 1); updateFloatingCartBar(); renderCartDrawer(); }
     function removeCustomerCartItem(idx) { customerCart.splice(idx, 1); updateFloatingCartBar(); renderCartDrawer(); }
 
     async function finalizeCustomerOrder() {
+      if (isSubmittingCustomerOrder || !customerCart.length) return;
+      if (currentStore.isOpen === false) { showToast("A loja está fechada e não está aceitando pedidos online.", "warning"); return; }
       const name = document.getElementById("cust-order-name").value.trim();
-      const phone = document.getElementById("cust-order-phone").value.trim();
+      const phone = normalizeWhatsAppPhone(document.getElementById("cust-order-phone").value);
       const street = document.getElementById("cust-addr-street").value.trim();
       const number = document.getElementById("cust-addr-number").value.trim();
-      const neighborhood = document.getElementById("cust-addr-neighborhood").value.trim();
+      const cep = normalizeCep(document.getElementById("cust-addr-cep").value);
       const payment = document.getElementById("cust-order-payment").value;
+      const changeFor = payment === "Dinheiro" ? Number(document.getElementById("cust-order-change").value || 0) : 0;
       if (!name || !phone) { showToast("Preencha seu nome e WhatsApp.", "warning"); return; }
-      if (cartDeliveryMode === "delivery" && (!street || !number || !neighborhood)) {
-        showToast("Preencha Rua, Número e Bairro para entrega.", "warning"); return;
+      if (!/^55\d{10,11}$/.test(phone)) { showToast("Informe um WhatsApp válido com DDD.", "warning"); return; }
+      if (cartDeliveryMode === "delivery" && (cep.length !== 8 || !street || !number)) {
+        showToast("Informe um CEP válido, rua e número para entrega.", "warning"); return;
       }
+      const zone = cartDeliveryMode === "delivery" ? findCustomerDeliveryZone() : null;
+      if (cartDeliveryMode === "delivery" && !zone) { showToast("A loja não atende esse CEP. Escolha retirada ou fale com a loja.", "warning"); return; }
 
       localStorage.setItem("last_customer_whatsapp", phone);
       const fullAddress = cartDeliveryMode === "delivery" ? buildFormattedAddress("cust") : "Retirada no Balcão";
       const { subtotal, fee, discount, total } = calcCartTotals();
+      if (payment === "Dinheiro" && changeFor > 0 && changeFor < total) { showToast("O valor para troco precisa ser igual ou maior que o total.", "warning"); return; }
       const newOrder = {
         id: "PED-" + Math.floor(1000 + Math.random() * 9000),
         customerName: name, customerPhone: phone, type: cartDeliveryMode,
-        address: fullAddress,
-        payment, items: structuredClone(customerCart), subtotal, fee, discount, total,
+        address: fullAddress, deliveryCep: zone ? formatCep(cep) : "",
+        deliveryDistanceKm: zone ? Number(zone.distanceKm || zone.maxKm) : 0, deliveryRadiusKm: zone ? Number(zone.distanceKm || zone.maxKm) : 0,
+        payment, changeFor, items: structuredClone(customerCart), subtotal, fee, discount, total,
         status: "novo", createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
         createdTimestamp: Date.now()
       };
-      let orderRef;
-      try { orderRef = await addDoc(collection(db, "stores", currentSlug, "orders"), newOrder); }
-      catch (e) { showToast("Erro ao enviar pedido.", "error"); return; }
-      if (currentStore.whatsapp?.provider === "railway_bridge" && currentStore.whatsapp?.apiUrl) {
-        const base = currentStore.whatsapp.apiUrl.trim().replace(/\/+$/, "");
-        fetch(`${base}/api/stores/${encodeURIComponent(currentSlug)}/orders/${encodeURIComponent(orderRef.id)}/confirmation`, {
-          method: "POST"
-        }).catch(() => {});
-      } else {
-        await dispatchWhatsAppMessage(newOrder.customerPhone, formatTemplateMessage(currentStore.whatsapp?.tplConfirmacao, newOrder), true);
-      }
-
-      customerCart = []; appliedCoupon = null; updateFloatingCartBar();
-      document.getElementById("cart-items-list").innerHTML = "";
-      document.getElementById("cart-checkout-fields").classList.add("hidden");
-      document.getElementById("cart-drawer-footer").classList.add("hidden");
-      document.getElementById("cart-success-code").textContent = `Pedido ${newOrder.id} • Total ${formatBRL(newOrder.total)}`;
-      document.getElementById("cart-success-screen").classList.remove("hidden");
+      const submitButton = document.getElementById("cust-submit-order");
+      isSubmittingCustomerOrder = true;
+      submitButton.disabled = true;
+      submitButton.textContent = "Enviando pedido…";
+      try {
+        const orderRef = await addDoc(collection(db, "stores", currentSlug, "orders"), newOrder);
+        if (currentStore.whatsapp?.provider === "railway_bridge" && currentStore.whatsapp?.apiUrl) {
+          const base = currentStore.whatsapp.apiUrl.trim().replace(/\/+$/, "");
+          fetch(`${base}/api/stores/${encodeURIComponent(currentSlug)}/orders/${encodeURIComponent(orderRef.id)}/confirmation`, { method: "POST" })
+            .then(async resp => {
+              const data = await resp.json().catch(() => ({}));
+              if (!resp.ok) throw new Error(data.error || "Falha no envio da confirmação.");
+              if (data.deliveryConfirmed !== true) showToast("Pedido registrado, mas o WhatsApp não confirmou a entrega da confirmação.", "warning");
+            })
+            .catch(e => showToast(`Pedido registrado, mas a confirmação por WhatsApp falhou: ${e.message}`, "warning"));
+        } else {
+          await dispatchWhatsAppMessage(newOrder.customerPhone, formatTemplateMessage(currentStore.whatsapp?.tplConfirmacao, newOrder), true);
+        }
+        customerCart = []; appliedCoupon = null; updateFloatingCartBar();
+        document.getElementById("cart-items-list").innerHTML = "";
+        document.getElementById("cart-checkout-fields").classList.add("hidden");
+        document.getElementById("cart-drawer-footer").classList.add("hidden");
+        document.getElementById("cart-progress").classList.add("hidden");
+        document.getElementById("cart-drawer-title").textContent = "Pedido enviado";
+        document.getElementById("cart-drawer-subtitle").textContent = "A loja recebeu seu pedido";
+        document.getElementById("cart-success-code").textContent = `Pedido ${newOrder.id} • Total ${formatBRL(newOrder.total)}`;
+        document.getElementById("cart-success-items").innerHTML = newOrder.items.map(item => `<div style="display:flex;justify-content:space-between;gap:12px;margin:4px 0;"><span>${item.qty}× ${item.name}</span><strong>${formatBRL(item.unitPrice * item.qty)}</strong></div>`).join("");
+        document.getElementById("cart-success-address").textContent = newOrder.address;
+        document.getElementById("cart-success-payment").textContent = newOrder.payment + (newOrder.changeFor ? ` · troco para ${formatBRL(newOrder.changeFor)}` : "");
+        document.getElementById("cart-success-total").textContent = formatBRL(newOrder.total);
+        document.getElementById("cart-success-screen").classList.remove("hidden");
+      } catch (e) { showToast("Não foi possível registrar o pedido. Confira sua conexão e tente novamente.", "error"); }
+      finally { isSubmittingCustomerOrder = false; submitButton.disabled = false; submitButton.textContent = "Finalizar pedido"; }
     }
 
     function fillDemoLogin() { document.getElementById("login-email").value = MASTER_EMAIL; document.getElementById("login-pass").focus(); }
@@ -1939,7 +2167,18 @@
     function renderPdvLogistics() {
       const queue = document.getElementById("pdv-ready-orders");
       const riderList = document.getElementById("pdv-motoboy-list");
-      if (!queue || !riderList) return;
+      const zonesList = document.getElementById("pdv-delivery-zones");
+      if (!queue || !riderList || !zonesList) return;
+      const deliveryZones = Array.isArray(currentStore.deliveryZones) ? currentStore.deliveryZones : [];
+      zonesList.innerHTML = deliveryZones.length ? deliveryZones.slice().sort((a, b) => Number(a.distanceKm || a.maxKm) - Number(b.distanceKm || b.maxKm)).map(zone => {
+        const start = normalizeCep(zone.cepStart), end = normalizeCep(zone.cepEnd);
+        const hasCepRange = start.length === 8 && end.length === 8;
+        const label = hasCepRange
+          ? `${formatCep(start)}–${formatCep(end)} · distância estimada ${Number(zone.distanceKm || zone.maxKm).toLocaleString("pt-BR")} km`
+          : `Faixa antiga por bairro (${(zone.neighborhoods || []).join(", ") || "sem CEP cadastrado"}) · recadastre por CEP`;
+        const title = hasCepRange ? `${Number(zone.distanceKm || zone.maxKm).toLocaleString("pt-BR")} km · ${formatBRL(zone.fee)}` : `${formatBRL(zone.fee)} · migração necessária`;
+        return `<div class="rider-row"><div><strong>${title}</strong><div style="font-size:.78rem;color:var(--text-muted);">${label}</div></div><button type="button" class="btn btn-outline btn-sm" style="color:#DC2626;" onclick="removeDeliveryZone('${zone.id}')">Remover</button></div>`;
+      }).join("") : `<div class="logistics-empty">Nenhuma faixa cadastrada. Cadastre CEPs e distâncias para aceitar pedidos com entrega.</div>`;
       const ready = currentOrders.filter(o => o.status === "pronto" && o.type === "delivery");
       const riders = Array.isArray(currentStore.motoboys) ? currentStore.motoboys : [];
       const count = document.getElementById("pdv-ready-count");
@@ -1950,18 +2189,48 @@
         return `<article class="dispatch-order">
           <div class="dispatch-order-top"><strong>${o.id} · ${o.customerName || "Cliente"}</strong><span class="status-tag status-pronto">PRONTO</span></div>
           <div class="dispatch-address"><strong>Destino</strong><br>${o.address || "Endereço não informado"}</div>
+          ${(Number(o.fee) >= 0 && (o.deliveryDistanceKm || o.deliveryRadiusKm)) ? `<div style="font-size:.82rem;color:var(--text-muted);">Estimativa: ${o.deliveryDistanceKm || o.deliveryRadiusKm} km · taxa ${formatBRL(o.fee)}</div>` : ""}
           <div style="font-size:.82rem;color:var(--text-muted);"><strong>Itens:</strong> ${items || "—"}</div>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
             <select id="courier-${key}" class="form-select" aria-label="Motoboy do pedido ${o.id}" style="flex:1;min-width:180px;" onchange="saveOrderCourier('${key}', this.value)">
               <option value="">Escolha um motoboy…</option>${riders.map(r => `<option value="${r.id}" ${o.motoboyId === r.id ? "selected" : ""}>${r.name}</option>`).join("")}
             </select>
             <button type="button" class="btn btn-whatsapp btn-sm" onclick="sendRiderRoute('${key}')" ${o.motoboyId ? "" : "disabled"}><i data-lucide="send" style="width:14px;height:14px;"></i> Enviar rota</button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="openRiderRouteManually('${key}')" ${o.motoboyId ? "" : "disabled"}>Abrir WhatsApp manual</button>
             ${o.motoboyId ? `<button type="button" class="btn btn-outline btn-sm" onclick="advanceOrderStatus('${key}','entrega')">Marcar em entrega</button>` : ""}
           </div>
         </article>`;
       }).join("") : `<div class="logistics-empty"><div style="font-size:1.5rem;margin-bottom:8px;">🛵</div><strong>Nenhum pedido aguardando saída</strong><p style="margin-top:4px;">Quando um pedido de entrega estiver pronto, ele aparecerá nesta fila.</p></div>`;
       riderList.innerHTML = riders.length ? riders.map(r => `<div class="rider-row"><div><strong>${r.name}</strong><div style="font-size:.78rem;color:var(--text-muted);">+${r.phone}</div></div><div style="display:flex;gap:6px;"><a class="btn btn-outline btn-sm" href="https://wa.me/${normalizeWhatsAppPhone(r.phone)}" target="_blank" rel="noopener noreferrer" aria-label="Abrir WhatsApp de ${r.name}">WhatsApp</a><button type="button" class="btn btn-outline btn-sm" onclick="removeMotoboy('${r.id}')" aria-label="Remover ${r.name}">×</button></div></div>`).join("") : `<p style="padding:18px 0;text-align:center;font-size:.82rem;color:var(--text-muted);">Cadastre o primeiro motoboy para começar.</p>`;
       if (window.lucide) lucide.createIcons();
+    }
+
+    async function addDeliveryZone(event) {
+      event.preventDefault();
+      const cepStart = normalizeCep(document.getElementById("delivery-zone-cep-start").value);
+      const cepEnd = normalizeCep(document.getElementById("delivery-zone-cep-end").value);
+      const distanceKm = Number(document.getElementById("delivery-zone-distance").value);
+      const fee = Number(document.getElementById("delivery-zone-fee").value);
+      if (!currentStore.address?.trim() || normalizeCep(currentStore.storeCep).length !== 8) { showToast("Cadastre e salve primeiro o endereço exato e o CEP da loja nas Configurações.", "warning"); return; }
+      if (cepStart.length !== 8 || cepEnd.length !== 8 || Number(cepStart) > Number(cepEnd) || !Number.isFinite(distanceKm) || distanceKm <= 0 || !Number.isFinite(fee) || fee < 0) { showToast("Informe uma faixa de CEP válida, distância estimada e taxa.", "warning"); return; }
+      const existing = currentStore.deliveryZones || [];
+      const overlaps = existing.some(zone => {
+        const start = normalizeCep(zone.cepStart), end = normalizeCep(zone.cepEnd);
+        return start.length === 8 && end.length === 8 && Number(cepStart) <= Number(end) && Number(cepEnd) >= Number(start);
+      });
+      if (overlaps) { showToast("Essa faixa de CEP cruza outra já cadastrada. Ajuste os limites para evitar conflito.", "warning"); return; }
+      currentStore.deliveryZones = [...existing, { id: `delivery-${Date.now()}`, cepStart, cepEnd, distanceKm, maxKm: distanceKm, fee, neighborhoods: [] }].sort((a, b) => a.distanceKm - b.distanceKm);
+      await persistStoreData();
+      event.target.reset();
+      renderPdvLogistics();
+      showToast("Faixa de entrega salva.", "success");
+    }
+
+    async function removeDeliveryZone(id) {
+      currentStore.deliveryZones = (currentStore.deliveryZones || []).filter(zone => zone.id !== id);
+      await persistStoreData();
+      renderPdvLogistics();
+      renderCartDrawer();
     }
 
     async function saveOrderCourier(key, riderId) {
@@ -1978,13 +2247,38 @@
     async function sendRiderRoute(key) {
       const order = currentOrders.find(o => (o.firestoreId || o.id) === key);
       if (!order) return;
-      const rider = (currentStore.motoboys || []).find(r => r.id === order.motoboyId) || (order.motoboyPhone ? { name: order.motoboyName, phone: order.motoboyPhone } : null);
+      const selectedRiderId = document.getElementById(`courier-${key}`)?.value || order.motoboyId;
+      const rider = (currentStore.motoboys || []).find(r => r.id === selectedRiderId) || (order.motoboyPhone ? { name: order.motoboyName, phone: order.motoboyPhone } : null);
       if (!rider) { showToast("Escolha um motoboy antes de enviar a rota.", "warning"); return; }
       if (!order.address || order.address === "Retirada no Balcão") { showToast("Este pedido não tem endereço de entrega.", "warning"); return; }
-      const route = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(currentStore.address || "")}&destination=${encodeURIComponent(order.address)}&travelmode=driving`;
+      const riderFields = { motoboyId: rider.id, motoboyName: rider.name, motoboyPhone: rider.phone };
+      Object.assign(order, riderFields);
+      if (order.firestoreId) await updateDoc(doc(db, "stores", currentSlug, "orders", order.firestoreId), riderFields);
+      const origin = `${currentStore.address || ""}${currentStore.storeCep ? `, CEP ${formatCep(currentStore.storeCep)}` : ""}`;
+      const route = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(order.address)}&travelmode=driving`;
       const items = (order.items || []).map(i => `${i.qty}× ${i.name}`).join(", ");
-      const message = `Olá ${rider.name}! O pedido ${order.id} está pronto para entrega.\n\nCliente: ${order.customerName}\nEndereço: ${order.address}\nPedido: ${items}\n\nRota: ${route}`;
+      const distance = order.deliveryDistanceKm || order.deliveryRadiusKm;
+      const distanceLine = distance ? `\nEstimativa de distância: ${distance} km` : "";
+      const message = `Olá ${rider.name}! O pedido ${order.id} está pronto para entrega.\n\nCliente: ${order.customerName}\nEndereço: ${order.address}${distanceLine}\nPedido: ${items}\n\nRota: ${route}`;
       await dispatchWhatsAppMessage(rider.phone, message);
+    }
+
+    function openRiderRouteManually(key) {
+      const order = currentOrders.find(o => (o.firestoreId || o.id) === key);
+      if (!order) return;
+      const selectedRiderId = document.getElementById(`courier-${key}`)?.value || order.motoboyId;
+      const rider = (currentStore.motoboys || []).find(r => r.id === selectedRiderId) || (order.motoboyPhone ? { name: order.motoboyName, phone: order.motoboyPhone } : null);
+      if (!rider) { showToast("Escolha um motoboy antes de abrir o WhatsApp.", "warning"); return; }
+      if (!order.address || order.address === "Retirada no Balcão") { showToast("Este pedido não tem endereço de entrega.", "warning"); return; }
+      const origin = `${currentStore.address || ""}${currentStore.storeCep ? `, CEP ${formatCep(currentStore.storeCep)}` : ""}`;
+      const route = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(order.address)}&travelmode=driving`;
+      const items = (order.items || []).map(i => `${i.qty}× ${i.name}`).join(", ");
+      const distance = order.deliveryDistanceKm || order.deliveryRadiusKm;
+      const distanceLine = distance ? `\nEstimativa de distância: ${distance} km` : "";
+      const message = `Olá ${rider.name}! O pedido ${order.id} está pronto para entrega.\n\nCliente: ${order.customerName}\nEndereço: ${order.address}${distanceLine}\nPedido: ${items}\n\nRota: ${route}`;
+      const phone = normalizeWhatsAppPhone(rider.phone);
+      if (!phone) { showToast("O motoboy não tem um telefone válido cadastrado.", "warning"); return; }
+      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
     }
 
     const getPublicStoreUrl = (slug = currentSlug, vitrine = false) => {
@@ -2047,7 +2341,10 @@
                 <button type="button" class="btn btn-outline btn-sm" onclick="openOrderDetailModal('${key}')">Detalhes</button>
                 <button type="button" class="btn btn-outline btn-sm" onclick="printOrderReceipt('${key}')">Imprimir</button>
               </div>
-              ${btn}
+              <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
+                ${btn}
+                ${["failed", "accepted"].includes(o.whatsappStatusNotificationState) ? `<button type="button" class="btn btn-outline btn-sm" onclick="resendOrderStatusNotification('${key}')">Reenviar aviso WhatsApp</button>` : ""}
+              </div>
             </div>
           </div>`;
       }).join("") || '<p style="color:var(--text-muted);font-size:0.9rem;">Nenhum pedido nesta etapa.</p>';
@@ -2060,14 +2357,68 @@
         .replace(/\{total\}/g, formatBRL(o.total)).replace(/\{endereco\}/g, o.address).replace(/\{tempo\}/g, currentStore.eta);
     }
 
+    function orderStatusTemplate(status) {
+      const templates = {
+        preparo: currentStore.whatsapp?.tplPreparo || "Olá {cliente}! Seu pedido {pedido} foi aceito e já está em preparo. 🍳",
+        pronto: currentStore.whatsapp?.tplPronto || "Olá {cliente}! Seu pedido {pedido} está pronto para sair. 🍔",
+        entrega: currentStore.whatsapp?.tplEntrega || "Olá {cliente}! Seu pedido {pedido} saiu para entrega. 🛵",
+        concluido: currentStore.whatsapp?.tplConcluido || "Olá {cliente}! Seu pedido {pedido} foi concluído. Obrigado por pedir com a gente! 😊"
+      };
+      return templates[status] || "";
+    }
+
+    async function sendOrderStatusNotification(order) {
+      const status = order.whatsappStatusNotification;
+      const tpl = orderStatusTemplate(status);
+      if (!tpl || !order.customerPhone) {
+        Object.assign(order, { whatsappStatusNotificationState: "failed", whatsappStatusNotificationError: "Telefone ou texto do status não configurado." });
+      } else {
+        Object.assign(order, { whatsappStatusNotificationState: "sending", whatsappStatusNotificationError: "" });
+        if (order.firestoreId) await updateDoc(doc(db, "stores", currentSlug, "orders", order.firestoreId), {
+          whatsappStatusNotification: status,
+          whatsappStatusNotificationState: "sending",
+          whatsappStatusNotificationError: ""
+        });
+        const result = await dispatchWhatsAppMessage(order.customerPhone, formatTemplateMessage(tpl, order), true);
+        Object.assign(order, result.ok && result.deliveryConfirmed === true
+          ? { whatsappStatusNotificationState: "sent", whatsappStatusNotificationError: "", whatsappStatusNotificationSentAt: Date.now() }
+          : result.ok
+            ? { whatsappStatusNotificationState: "accepted", whatsappStatusNotificationError: "" }
+            : { whatsappStatusNotificationState: "failed", whatsappStatusNotificationError: result.error || "Falha no envio." });
+      }
+      if (order.firestoreId) await updateDoc(doc(db, "stores", currentSlug, "orders", order.firestoreId), {
+        whatsappStatusNotificationState: order.whatsappStatusNotificationState,
+        whatsappStatusNotificationError: order.whatsappStatusNotificationError || "",
+        ...(order.whatsappStatusNotificationState === "sent" ? { whatsappStatusNotificationSentAt: order.whatsappStatusNotificationSentAt } : {})
+      });
+      renderAdminOrders();
+      if (order.whatsappStatusNotificationState === "failed") showToast("Status atualizado, mas o aviso não chegou. Use Reenviar aviso WhatsApp após corrigir a conexão.", "warning");
+      else if (order.whatsappStatusNotificationState === "sent") showToast("WhatsApp confirmou a entrega do aviso ao cliente.", "success");
+      else if (order.whatsappStatusNotificationState === "accepted") showToast("Status enviado ao WhatsApp; confirme no aparelho da loja se chegou ao cliente.", "warning");
+      return ["sent", "accepted"].includes(order.whatsappStatusNotificationState);
+    }
+
+    async function resendOrderStatusNotification(key) {
+      const order = currentOrders.find(x => (x.firestoreId || x.id) === key);
+      if (!order) return;
+      if (order.whatsappStatusNotificationState === "accepted" && !confirm("O WhatsApp aceitou o envio, mas não confirmou a entrega. Se a mensagem chegou, reenviar pode duplicá-la. Confira a conversa no aparelho conectado. Deseja reenviar mesmo assim?")) return;
+      await sendOrderStatusNotification(order);
+    }
+
     async function advanceOrderStatus(key, newStatus) {
       const o = currentOrders.find(x => (x.firestoreId || x.id) === key);
       if (!o) return;
-      if (o.firestoreId) await updateDoc(doc(db, "stores", currentSlug, "orders", o.firestoreId), { status: newStatus });
-      const tplByStatus = { preparo: currentStore.whatsapp?.tplPreparo, entrega: currentStore.whatsapp?.tplEntrega, concluido: currentStore.whatsapp?.tplConcluido };
-      const tpl = tplByStatus[newStatus];
-      if (tpl && o.customerPhone) await dispatchWhatsAppMessage(o.customerPhone, formatTemplateMessage(tpl, o), false);
+      const tpl = orderStatusTemplate(newStatus);
+      Object.assign(o, { status: newStatus, whatsappStatusNotification: newStatus, whatsappStatusNotificationState: tpl && o.customerPhone ? "sending" : "not_configured", whatsappStatusNotificationError: "" });
+      if (o.firestoreId) await updateDoc(doc(db, "stores", currentSlug, "orders", o.firestoreId), {
+        status: newStatus,
+        whatsappStatusNotification: newStatus,
+        whatsappStatusNotificationState: o.whatsappStatusNotificationState,
+        whatsappStatusNotificationError: ""
+      });
       if (newStatus === "pronto") showToast(`Pedido ${o.id} pronto para expedição.`, "success");
+      renderAdminOrders();
+      if (tpl && o.customerPhone) await sendOrderStatusNotification(o);
     }
 
     function openOrderDetailModal(key) {
@@ -2076,11 +2427,11 @@
       document.getElementById("od-title").textContent = `Pedido ${o.id} • ${o.customerName}`;
       document.getElementById("od-body").innerHTML = `
         <div style="font-size:0.86rem;display:flex;flex-direction:column;gap:8px;">
-          <div><strong>Telefone:</strong> ${o.customerPhone}</div><div><strong>Entrega:</strong> ${o.address}</div><div><strong>Pagamento:</strong> ${o.payment}</div>
+          <div><strong>Telefone:</strong> ${o.customerPhone}</div><div><strong>Entrega:</strong> ${o.address}</div><div><strong>Pagamento:</strong> ${o.payment}${o.changeFor ? ` · Troco para ${formatBRL(o.changeFor)}` : ""}</div>
           <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);"><strong>Itens:</strong>
             ${(o.items || []).map(i => `<div>• ${i.qty}x ${i.name} (${formatBRL(i.unitPrice * i.qty)}) ${i.optionsText ? `<br/><small style="color:#64748B;">${i.optionsText}</small>` : ""}${i.notes ? `<br/><small style="color:#B45309;">Obs: ${i.notes}</small>` : ""}</div>`).join("")}
           </div>
-          <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);"><strong>Total: ${formatBRL(o.total)}</strong></div>
+          <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);"><div>Subtotal: ${formatBRL(o.subtotal)} · Taxa de entrega: ${formatBRL(o.fee)}</div><strong>Total: ${formatBRL(o.total)}</strong></div>
         </div>`;
       document.getElementById("od-footer").innerHTML = `<button type="button" class="btn btn-primary btn-sm" onclick="printOrderReceipt('${key}')">Imprimir Comanda 80mm</button><button type="button" class="btn btn-dark btn-sm" onclick="closeOrderDetailModal()">Fechar</button>`;
       document.getElementById("order-detail-modal").classList.remove("hidden");
@@ -2111,6 +2462,7 @@
         <div>Taxa Entrega: ${formatBRL(o.fee)}</div>
         ${o.discount > 0 ? `<div>Desconto: -${formatBRL(o.discount)}</div>` : ""}
         <div>Pagamento: ${o.payment}</div>
+        ${o.changeFor ? `<div>Troco para: ${formatBRL(o.changeFor)}</div>` : ""}
         <div style="font-weight:bold;font-size:14px;margin-top:4px;">TOTAL: ${formatBRL(o.total)}</div>
       `;
       setTimeout(() => {
@@ -2248,6 +2600,7 @@
       document.getElementById("wa-api-url").value = w.apiUrl || "https://dona-vina-production.up.railway.app";
       document.getElementById("tpl-confirmacao").value = w.tplConfirmacao || "";
       document.getElementById("tpl-preparo").value = w.tplPreparo || "";
+      document.getElementById("tpl-pronto").value = w.tplPronto || "Olá {cliente}! Seu pedido {pedido} está pronto para sair. 🍔";
       document.getElementById("tpl-entrega").value = w.tplEntrega || "";
       document.getElementById("tpl-concluido").value = w.tplConcluido || "";
       document.getElementById("bot-enabled-toggle").checked = w.botEnabled !== false;
@@ -2263,6 +2616,7 @@
       currentStore.whatsapp = {
         ...currentStore.whatsapp, provider: "railway_bridge", apiUrl: document.getElementById("wa-api-url").value.trim(),
         tplConfirmacao: document.getElementById("tpl-confirmacao").value, tplPreparo: document.getElementById("tpl-preparo").value,
+        tplPronto: document.getElementById("tpl-pronto").value,
         tplEntrega: document.getElementById("tpl-entrega").value, tplConcluido: document.getElementById("tpl-concluido").value,
         botEnabled: document.getElementById("bot-enabled-toggle").checked, botWelcome: document.getElementById("bot-msg-welcome").value,
         botPix: document.getElementById("bot-msg-pix").value, botHours: document.getElementById("bot-msg-hours").value,
@@ -2347,11 +2701,14 @@
             body: JSON.stringify({ phone: digits, text: message })
           });
           const data = await resp.json().catch(() => ({}));
-          if (!resp.ok) throw new Error(data.error || "Falha ao enviar mensagem.");
-          if (data.deliveryConfirmed === false) throw new Error(data.error || "O WhatsApp não confirmou a entrega da mensagem.");
-          if (!silent) showToast(`Mensagem entregue para ${phone}!`, "success");
-        } catch (e) { if (!silent) showToast(e.message, "error"); }
-        return;
+          if (!resp.ok || data.accepted !== true) throw new Error(data.error || "Falha ao enviar mensagem.");
+          if (data.deliveryConfirmed === true) {
+            if (!silent) showToast(`WhatsApp confirmou a entrega para ${digits}.`, "success");
+          } else if (!silent) {
+            showToast("O WhatsApp aceitou o envio, mas não fornece confirmação de entrega. Confira a conversa no aparelho conectado.", "warning");
+          }
+          return { ...data, ok: true };
+        } catch (e) { if (!silent) showToast(e.message, "error"); return { ok: false, error: e.message }; }
       }
     }
     function clearSimChat() { document.getElementById("wa-sim-messages").replaceChildren(); }
@@ -2445,9 +2802,10 @@
     }
 
     function renderAdminCategories() {
-      document.getElementById("admin-categories-list").innerHTML = (currentStore.categories || []).map(c => `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border:1px solid var(--border);border-radius:10px;"><strong>${c.name}</strong><button type="button" class="btn btn-outline btn-sm" style="color:#DC2626;" onclick="deleteCategory('${c.id}')">Remover</button></div>`).join("");
+      document.getElementById("admin-categories-list").innerHTML = (currentStore.categories || []).map((c, index, categories) => `<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 14px;border:1px solid var(--border);border-radius:10px;"><strong>${c.name}</strong><div style="display:flex;align-items:center;gap:6px;"><button type="button" class="btn btn-outline btn-sm" aria-label="Mover ${c.name} para cima" title="Mover para cima" ${index === 0 ? "disabled" : ""} onclick="moveCategory('${c.id}',-1)">↑</button><button type="button" class="btn btn-outline btn-sm" aria-label="Mover ${c.name} para baixo" title="Mover para baixo" ${index === categories.length - 1 ? "disabled" : ""} onclick="moveCategory('${c.id}',1)">↓</button><button type="button" class="btn btn-outline btn-sm" style="color:#DC2626;" onclick="deleteCategory('${c.id}')">Remover</button></div></div>`).join("");
     }
     async function addCategory(e) { e.preventDefault(); const name = document.getElementById("new-cat-name").value.trim(); if (!name) return; currentStore.categories.push({ id: "cat-" + Date.now(), name }); document.getElementById("new-cat-name").value = ""; await persistStoreData(); renderAdminCategories(); }
+    async function moveCategory(id, direction) { const categories = currentStore.categories || [], index = categories.findIndex(category => category.id === id), target = index + direction; if (index < 0 || target < 0 || target >= categories.length) return; [categories[index], categories[target]] = [categories[target], categories[index]]; currentStore.categories = categories; await persistStoreData(); renderAdminCategories(); }
     async function deleteCategory(id) { currentStore.categories = currentStore.categories.filter(c => c.id !== id); await persistStoreData(); renderAdminCategories(); }
 
     function renderAdminCoupons() {
@@ -2462,10 +2820,10 @@
       document.getElementById("set-banner-preview").src = s.banner; document.getElementById("set-banner-url").value = s.banner;
       document.getElementById("set-name").value = s.name; document.getElementById("set-subtitle").value = s.subtitle;
       document.getElementById("set-phone").value = s.phone; document.getElementById("set-pix").value = s.pixKey;
-      document.getElementById("set-fee").value = s.deliveryFee; document.getElementById("set-free-above").value = s.freeDeliveryAbove;
       document.getElementById("set-eta").value = s.eta; document.getElementById("set-pickup-eta").value = s.pickupEta || "25 min";
       document.getElementById("set-color").value = s.primaryColor;
       document.getElementById("set-address").value = s.address; document.getElementById("set-hours").value = s.hours;
+      document.getElementById("set-store-cep").value = formatCep(s.storeCep || "");
     }
     async function saveStoreSettings(e) {
       e.preventDefault();
@@ -2474,10 +2832,9 @@
       s.banner = document.getElementById("set-banner-url").value.trim() || s.banner;
       s.name = document.getElementById("set-name").value.trim(); s.subtitle = document.getElementById("set-subtitle").value.trim();
       s.phone = document.getElementById("set-phone").value.trim(); s.pixKey = document.getElementById("set-pix").value.trim();
-      s.deliveryFee = parseFloat(document.getElementById("set-fee").value || 0); s.freeDeliveryAbove = parseFloat(document.getElementById("set-free-above").value || 0);
       s.eta = document.getElementById("set-eta").value.trim(); s.pickupEta = document.getElementById("set-pickup-eta").value.trim() || "25 min";
       s.primaryColor = document.getElementById("set-color").value;
-      s.address = document.getElementById("set-address").value.trim(); s.hours = document.getElementById("set-hours").value.trim();
+      s.address = document.getElementById("set-address").value.trim(); s.storeCep = normalizeCep(document.getElementById("set-store-cep").value); s.hours = document.getElementById("set-hours").value.trim();
       await persistStoreData();
       document.getElementById("admin-sidebar-name").textContent = s.name; document.getElementById("admin-sidebar-logo").src = s.logo;
       showToast("Configurações salvas!", "success");
@@ -2619,12 +2976,12 @@
     Object.assign(window, {
       switchView, enterStoreCatalog, openTrackOrdersModal, closeTrackOrdersModal, searchCustomerOrdersByPhone,
       openStoreInfoModal, renderCustomerMenu, selectCustomerCat, openProductModal, closeProductModal, changeModalQty, handleModalOptionChange, recalcModalPrice, confirmAddModalItem,
-      openCartDrawer, closeCartDrawer, applyCartCoupon, setCartDeliveryMode, toggleCustPaymentInfo, removeCustomerCartItem, finalizeCustomerOrder,
+      openCartDrawer, closeCartDrawer, applyCartCoupon, setCartDeliveryMode, setCustomerPayment, toggleCustPaymentInfo, updateDeliveryQuote, formatCepInput, changeCustomerCartQty, removeCustomerCartItem, advanceCartCheckout, previousCartStep, finalizeCustomerOrder,
       handleAdminLogin, fillDemoLogin, handleAdminLogout, switchAdminTab, openStorePublicLink, copyCurrentStoreUrl, toggleStoreOpen, setOrderFilter,
-      advanceOrderStatus, openOrderDetailModal, closeOrderDetailModal, printOrderReceipt, renderPdvCatalog, selectPdvCategory, handlePdvItemClick, removePdvCartItem, clearPdvCart,
-      switchPdvView, addMotoboy, removeMotoboy, renderPdvLogistics, saveOrderCourier, sendRiderRoute,
+      advanceOrderStatus, resendOrderStatusNotification, openOrderDetailModal, closeOrderDetailModal, printOrderReceipt, renderPdvCatalog, selectPdvCategory, handlePdvItemClick, removePdvCartItem, clearPdvCart,
+      switchPdvView, addMotoboy, removeMotoboy, addDeliveryZone, removeDeliveryZone, renderPdvLogistics, saveOrderCourier, sendRiderRoute,
       autoFillPdvCustomer, togglePdvDeliveryFields, togglePdvChangeField, renderPdvCart, submitPdvOrder, openProductEditor, closeProductEditor,
-      handleProductImageUpload, addEditorOptionGroup, renderEditorGroups, saveProductFromEditor, toggleProductAvail, deleteProduct, addCategory,
+      handleProductImageUpload, addEditorOptionGroup, renderEditorGroups, saveProductFromEditor, toggleProductAvail, deleteProduct, addCategory, moveCategory,
       deleteCategory, addCoupon, deleteCoupon, saveWaSettings, connectRailwayWhatsApp, copyTag, clearSimChat, sendSimMessage,
       handleStoreImageUpload, saveStoreSettings, exportBackupJSON, autoSlugifySaas, createSaasTenant, copyTenantLink, toggleTenantStatus, manageTenantAsMaster,
       openEditTenantModal, closeEditTenantModal, saveTenantEdit, deleteSaasTenant,
