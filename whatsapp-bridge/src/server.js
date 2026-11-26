@@ -5,11 +5,16 @@ import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import admin from 'firebase-admin';
 import makeWASocket, { Browsers, DisconnectReason, generateMessageIDV2, useMultiFileAuthState } from '@whiskeysockets/baileys';
+import whatsappWeb from 'whatsapp-web.js';
 import pino from 'pino';
 
 const PORT = Number(process.env.PORT || 3000);
 const MASTER_EMAIL = (process.env.MASTER_EMAIL || 'joaosoaresthi@gmail.com').toLowerCase();
 const AUTH_DIR = path.resolve(process.env.AUTH_DIR || '/data/auth');
+const WEBJS_AUTH_DIR = path.resolve(process.env.WEBJS_AUTH_DIR || path.join(AUTH_DIR, 'webjs'));
+const WHATSAPP_PROVIDER = (process.env.WHATSAPP_PROVIDER || 'webjs').toLowerCase();
+if (!['baileys', 'webjs'].includes(WHATSAPP_PROVIDER)) throw new Error('WHATSAPP_PROVIDER deve ser baileys ou webjs.');
+const { Client: WebClient, LocalAuth } = whatsappWeb;
 const origins = new Set((process.env.APP_ORIGINS || 'https://dona-vina.vercel.app').split(',').map((v) => v.trim()).filter(Boolean));
 if (!process.env.FIREBASE_SERVICE_ACCOUNT) throw new Error('Configure FIREBASE_SERVICE_ACCOUNT.');
 admin.initializeApp({ credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)) });
@@ -26,8 +31,8 @@ app.use(rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: true, legacyH
 
 function slugOf(value) { const slug = String(value || '').toLowerCase(); if (!/^[a-z0-9](?:[a-z0-9-]{0,58}[a-z0-9])?$/.test(slug)) { const e = new Error('Slug inválido.'); e.status = 400; throw e; } return slug; }
 // shortcut: pauses live in memory and reset on Railway restart; persist per chat if pauses must survive redeploys.
-function sessionFor(slug) { if (!sessions.has(slug)) sessions.set(slug, { state: 'disconnected', qr: null, phone: null, error: null, socket: null, starting: null, timer: null, generation: 0, automatedMessageIds: new Set(), pendingMessages: new Map(), pausedChats: new Set() }); return sessions.get(slug); }
-function stateOf(slug) { const s = sessionFor(slug); return { store: slug, state: s.state, qr: s.qr, phone: s.phone, error: s.error }; }
+function sessionFor(slug) { if (!sessions.has(slug)) sessions.set(slug, { state: 'disconnected', qr: null, phone: null, error: null, socket: null, starting: null, timer: null, generation: 0, automatedMessageIds: new Set(), automatedMessageBodies: new Set(), pendingMessages: new Map(), pausedChats: new Set() }); return sessions.get(slug); }
+function stateOf(slug) { const s = sessionFor(slug); return { store: slug, provider: WHATSAPP_PROVIDER, state: s.state, qr: s.qr, phone: s.phone, error: s.error }; }
 async function authorize(req, res, next) {
   try {
     const token = req.headers.authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
@@ -124,13 +129,10 @@ function botReply(text, store = {}, slug = '') {
   if (/\b(oi|ola|bom dia|boa tarde|boa noite|ajuda|inicio|comecar)\b/.test(t) || !t) return greeting();
   return w.botFallback || 'Não entendi essa opção. 😊\n\nResponda 1 para ver o cardápio, 2 para horário/endereço, 3 para Pix ou 4 para falar com a equipe.';
 }
-async function incoming(slug, msg) {
-  const id = msg.key?.id, jid = msg.key?.remoteJid;
+async function incomingText(slug, { id, jid, text, fromMe = false }) {
   const seenId = `${slug}:${id}`;
-  if (!id || !jid || msg.key.fromMe || jid === 'status@broadcast' || jid.endsWith('@g.us') || seen.has(seenId)) return;
+  if (!id || !jid || fromMe || jid === 'status@broadcast' || jid.endsWith('@g.us') || seen.has(seenId) || !String(text || '').trim()) return;
   seen.add(seenId); if (seen.size > 2000) seen.delete(seen.values().next().value);
-  const m = msg.message || {}; const text = m.conversation || m.extendedTextMessage?.text || m.imageMessage?.caption || m.videoMessage?.caption || '';
-  if (!text.trim()) return;
   try {
     const s = sessionFor(slug);
     if (s.pausedChats.has(jid)) { if (!isBotTrigger(text)) return; s.pausedChats.delete(jid); }
@@ -138,12 +140,71 @@ async function incoming(slug, msg) {
   }
   catch (e) { logger.error({ err: e, slug }, 'Falha ao responder'); }
 }
+async function incoming(slug, msg) {
+  const m = msg.message || {};
+  await incomingText(slug, { id: msg.key?.id, jid: msg.key?.remoteJid, fromMe: msg.key?.fromMe, text: m.conversation || m.extendedTextMessage?.text || m.imageMessage?.caption || m.videoMessage?.caption || '' });
+}
+function authPathFor(slug) { return WHATSAPP_PROVIDER === 'webjs' ? path.join(WEBJS_AUTH_DIR, `session-${slug}`) : path.join(AUTH_DIR, slug); }
 async function start(slug) {
-  const s = sessionFor(slug); if (s.starting) return s.starting; if (s.state === 'connected' && s.socket) return s;
+  const s = sessionFor(slug); if (s.starting) return s.starting; if (['connected', 'connecting', 'qr'].includes(s.state) && s.socket) return s;
   s.starting = (async () => {
-    const folder = path.join(AUTH_DIR, slug); await fs.mkdir(folder, { recursive: true });
-    const { state, saveCreds } = await useMultiFileAuthState(folder); const generation = ++s.generation;
+    const generation = ++s.generation;
     s.state = 'connecting'; s.qr = null; s.error = null;
+    if (WHATSAPP_PROVIDER === 'webjs') {
+      await fs.mkdir(WEBJS_AUTH_DIR, { recursive: true });
+      const client = new WebClient({
+        authStrategy: new LocalAuth({ clientId: slug, dataPath: WEBJS_AUTH_DIR }),
+        puppeteer: { headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] }
+      });
+      s.socket = client;
+      client.on('qr', (qr) => { if (s.generation === generation) { s.qr = qr; s.state = 'qr'; } });
+      client.on('authenticated', () => { if (s.generation === generation) { s.qr = null; s.state = 'connecting'; } });
+      client.on('ready', () => {
+        if (s.generation !== generation) return;
+        s.state = 'connected'; s.qr = null; s.error = null;
+        s.phone = String(client.info?.wid?.user || '').replace(/\D/g, '') || null;
+      });
+      client.on('auth_failure', (reason) => {
+        if (s.generation !== generation) return;
+        failPending(s, new Error('A autenticação do WhatsApp falhou. Gere um novo QR Code.'));
+        s.state = 'logged_out'; s.qr = null; s.phone = null;
+        s.error = String(reason || 'Falha na autenticação.').slice(0, 180); s.socket = null;
+        void client.destroy().catch(() => {});
+      });
+      client.on('message', (message) => {
+        void incomingText(slug, { id: message.id?._serialized, jid: message.from, fromMe: message.fromMe, text: message.body });
+      });
+      client.on('message_create', (message) => {
+        if (!message.fromMe) return;
+        const id = message.id?._serialized, jid = message.to || message.id?.remote;
+        const signature = `${jid}\n${message.body || ''}`;
+        if ((id && s.automatedMessageIds.delete(id)) || s.automatedMessageBodies.delete(signature)) return;
+        if (jid && jid !== 'status@broadcast' && !jid.endsWith('@g.us')) s.pausedChats.add(jid);
+      });
+      client.on('message_ack', (message, ack) => {
+        const pending = message.id?._serialized && s.pendingMessages.get(message.id._serialized);
+        if (pending && Number(ack) < 0) pending.finish(new Error('O WhatsApp recusou a mensagem.'));
+      });
+      client.on('disconnected', (reason) => {
+        if (s.generation !== generation) return;
+        const loggedOut = String(reason || '').toUpperCase().includes('LOGOUT');
+        failPending(s, new Error(loggedOut ? 'A sessão do WhatsApp foi removida. Gere e leia um novo QR Code.' : 'A conexão do WhatsApp caiu durante o envio.'));
+        s.state = loggedOut ? 'logged_out' : 'disconnected'; s.socket = null; s.qr = null; s.phone = null;
+        s.error = loggedOut ? 'WhatsApp desconectado; gere outro QR.' : 'Conexão caiu; tentando reconectar.';
+        void client.destroy().catch(() => {});
+        if (!loggedOut) { clearTimeout(s.timer); s.timer = setTimeout(() => void start(slug), 3000); }
+      });
+      void client.initialize().catch((err) => {
+        if (s.generation !== generation || s.state === 'logged_out') return;
+        logger.error({ err, slug }, 'Falha ao iniciar WhatsApp Web.js');
+        failPending(s, new Error('Não foi possível iniciar o WhatsApp Web. Confira o Chromium e os logs do Railway.'));
+        s.state = 'error'; s.error = String(err.message || err).slice(0, 180); s.socket = null;
+        void client.destroy().catch(() => {});
+      });
+      return s;
+    }
+    const folder = path.join(AUTH_DIR, slug); await fs.mkdir(folder, { recursive: true });
+    const { state, saveCreds } = await useMultiFileAuthState(folder);
     const sock = makeWASocket({ auth: state, logger, printQRInTerminal: false, browser: Browsers.macOS('Desktop'), markOnlineOnConnect: false, syncFullHistory: false }); s.socket = sock;
     sock.ev.on('creds.update', saveCreds);
     sock.ev.on('messages.update', (updates) => {
@@ -183,11 +244,27 @@ async function start(slug) {
 async function send(slug, jid, text) {
   const s = sessionFor(slug);
   if (s.state !== 'connected' || !s.socket) { const e = new Error('WhatsApp da loja não está conectado.'); e.status = 503; throw e; }
-  const messageId = generateMessageIDV2(s.socket.user?.id);
-  markAutomated(s, messageId);
-  const failureWatch = watchSendFailure(s, messageId, slug);
+  const messageId = WHATSAPP_PROVIDER === 'baileys' ? generateMessageIDV2(s.socket.user?.id) : null;
+  if (messageId) markAutomated(s, messageId);
+  const failureWatch = watchSendFailure(s, messageId || `pending:${Date.now()}:${Math.random()}`, slug);
   let sentId;
+  let bodySignature;
   try {
+    if (WHATSAPP_PROVIDER === 'webjs') {
+      const target = jid.endsWith('@s.whatsapp.net') ? jid.replace('@s.whatsapp.net', '@c.us') : jid;
+      bodySignature = `${target}\n${text}`;
+      s.automatedMessageBodies.add(bodySignature);
+      const expiry = setTimeout(() => s.automatedMessageBodies.delete(bodySignature), 5000);
+      expiry.unref();
+      const sent = await s.socket.sendMessage(target, text);
+      sentId = sent?.id?._serialized;
+      if (!sentId) throw new Error('O WhatsApp não retornou a confirmação de aceite do envio.');
+      failureWatch.addId(sentId); markAutomated(s, sentId);
+      if (Number(sent.ack) < 0) throw new Error('O WhatsApp recusou a mensagem.');
+      const sendError = await failureWatch.promise;
+      if (sendError) throw sendError;
+      return { accepted: true, deliveryConfirmed: Number(sent.ack) >= 2 ? true : null };
+    }
     const target = await resolveRecipientJid(s, jid);
     const sent = await s.socket.sendMessage(target, { text }, { messageId });
     if (!sent?.key?.id) throw new Error('O WhatsApp não retornou a confirmação de aceite do envio.');
@@ -199,8 +276,9 @@ async function send(slug, jid, text) {
     return { accepted: true, deliveryConfirmed: null };
   } catch (e) {
     failureWatch.cancel();
-    s.automatedMessageIds.delete(messageId);
+    if (messageId) s.automatedMessageIds.delete(messageId);
     if (sentId) s.automatedMessageIds.delete(sentId);
+    if (bodySignature) s.automatedMessageBodies.delete(bodySignature);
     throw e;
   }
 }
@@ -213,10 +291,13 @@ function orderText(tpl, order, store) {
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 app.get('/api/stores/:slug/whatsapp/status', authorize, (req, res) => res.json(stateOf(req.slug)));
-app.post('/api/stores/:slug/whatsapp/connect', authorize, async (req, res) => { try { const s = sessionFor(req.slug); if (s.state === 'logged_out') { await fs.rm(path.join(AUTH_DIR, req.slug), { recursive: true, force: true }); s.state = 'disconnected'; s.error = null; } await start(req.slug); res.json(stateOf(req.slug)); } catch (e) { res.status(500).json({ error: e.message, ...stateOf(req.slug) }); } });
+app.post('/api/stores/:slug/whatsapp/connect', authorize, async (req, res) => { try { const s = sessionFor(req.slug); if (s.state === 'logged_out') { await fs.rm(authPathFor(req.slug), { recursive: true, force: true }); s.state = 'disconnected'; s.error = null; } await start(req.slug); res.json(stateOf(req.slug)); } catch (e) { res.status(500).json({ error: e.message, ...stateOf(req.slug) }); } });
 app.post('/api/stores/:slug/whatsapp/disconnect', authorize, async (req, res) => {
-  const s = sessionFor(req.slug); clearTimeout(s.timer); s.generation++; try { await s.socket?.logout(); } catch {} s.socket?.end(undefined); s.socket = null; s.state = 'disconnected'; s.qr = null; s.phone = null; s.error = null;
-  await fs.rm(path.join(AUTH_DIR, req.slug), { recursive: true, force: true }); res.json(stateOf(req.slug));
+  const s = sessionFor(req.slug); clearTimeout(s.timer); s.generation++;
+  if (WHATSAPP_PROVIDER === 'webjs') { try { await s.socket?.logout(); } catch {} try { await s.socket?.destroy(); } catch {} }
+  else { try { await s.socket?.logout(); } catch {} s.socket?.end(undefined); }
+  s.socket = null; s.state = 'disconnected'; s.qr = null; s.phone = null; s.error = null;
+  await fs.rm(authPathFor(req.slug), { recursive: true, force: true }); res.json(stateOf(req.slug));
 });
 app.post('/api/stores/:slug/whatsapp/send', authorize, async (req, res) => {
   const phone = phoneDigits(req.body?.phone), text = String(req.body?.text || '').trim();
@@ -239,9 +320,19 @@ app.post('/api/stores/:slug/orders/:orderId/confirmation', async (req, res) => {
 });
 
 const server = app.listen(PORT, '0.0.0.0', async () => {
-  await fs.mkdir(AUTH_DIR, { recursive: true }); logger.info({ port: PORT }, 'WhatsApp bridge online');
-  const entries = await fs.readdir(AUTH_DIR, { withFileTypes: true }).catch(() => []);
-  for (const e of entries) if (e.isDirectory() && /^[a-z0-9-]{1,60}$/.test(e.name)) void start(e.name).catch((err) => logger.error({ err, slug: e.name }, 'Falha ao restaurar sessão'));
+  await fs.mkdir(AUTH_DIR, { recursive: true });
+  logger.info({ port: PORT, provider: WHATSAPP_PROVIDER }, 'WhatsApp bridge online');
+  if (WHATSAPP_PROVIDER === 'webjs') {
+    await fs.mkdir(WEBJS_AUTH_DIR, { recursive: true });
+    const entries = await fs.readdir(WEBJS_AUTH_DIR, { withFileTypes: true }).catch(() => []);
+    for (const e of entries) {
+      const match = e.isDirectory() && e.name.match(/^session-([a-z0-9-]{1,60})$/);
+      if (match) void start(match[1]).catch((err) => logger.error({ err, slug: match[1] }, 'Falha ao restaurar sessão Web.js'));
+    }
+  } else {
+    const entries = await fs.readdir(AUTH_DIR, { withFileTypes: true }).catch(() => []);
+    for (const e of entries) if (e.isDirectory() && e.name !== 'webjs' && /^[a-z0-9-]{1,60}$/.test(e.name)) void start(e.name).catch((err) => logger.error({ err, slug: e.name }, 'Falha ao restaurar sessão'));
+  }
 });
-function shutdown() { server.close(); for (const s of sessions.values()) { clearTimeout(s.timer); s.socket?.end(undefined); } setTimeout(() => process.exit(0), 1000).unref(); }
+function shutdown() { server.close(); for (const s of sessions.values()) { clearTimeout(s.timer); if (WHATSAPP_PROVIDER === 'webjs') void s.socket?.destroy().catch(() => {}); else s.socket?.end(undefined); } setTimeout(() => process.exit(0), 1000).unref(); }
 process.on('SIGTERM', shutdown); process.on('SIGINT', shutdown);
