@@ -770,8 +770,9 @@
               </div>
               <div class="form-group"><label class="form-label">1. Confirmação ao Receber Pedido</label><textarea id="tpl-confirmacao" class="form-textarea" rows="2"></textarea></div>
               <div class="form-group"><label class="form-label">2. Pedido Aceito / Em Preparo</label><textarea id="tpl-preparo" class="form-textarea" rows="2"></textarea></div>
-              <div class="form-group"><label class="form-label">3. Saiu para Entrega</label><textarea id="tpl-entrega" class="form-textarea" rows="2"></textarea></div>
-              <div class="form-group" style="margin-bottom:0;"><label class="form-label">4. Pedido Concluído</label><textarea id="tpl-concluido" class="form-textarea" rows="2"></textarea></div>
+              <div class="form-group"><label class="form-label">3. Pedido Pronto</label><textarea id="tpl-pronto" class="form-textarea" rows="2"></textarea></div>
+              <div class="form-group"><label class="form-label">4. Saiu para Entrega</label><textarea id="tpl-entrega" class="form-textarea" rows="2"></textarea></div>
+              <div class="form-group" style="margin-bottom:0;"><label class="form-label">5. Pedido Concluído</label><textarea id="tpl-concluido" class="form-textarea" rows="2"></textarea></div>
             </div>
           </div>
           <div>
@@ -1188,6 +1189,7 @@
           provider: "railway_bridge", apiUrl: "https://dona-vina-production.up.railway.app",
           tplConfirmacao: "Olá {cliente}! ✅ Recebemos seu pedido *{pedido}*!\n\n*Itens:* {itens}\n*Total:* {total}\n*Previsão:* {tempo}. Já vamos preparar!",
           tplPreparo: "Olá {cliente}! Seu pedido {pedido} foi ACEITO! 🍔 Já está em preparo. Tempo estimado: {tempo}.",
+          tplPronto: "Olá {cliente}! Seu pedido {pedido} está pronto para sair. 🍔",
           tplEntrega: "Boa notícia {cliente}! Seu pedido {pedido} SAIU PARA ENTREGA! 🛵 Endereço: {endereco}.",
           tplConcluido: "Pedido {pedido} CONCLUÍDO! 🎉 Obrigado pela preferência!",
           botEnabled: true,
@@ -2055,7 +2057,13 @@
         const orderRef = await addDoc(collection(db, "stores", currentSlug, "orders"), newOrder);
         if (currentStore.whatsapp?.provider === "railway_bridge" && currentStore.whatsapp?.apiUrl) {
           const base = currentStore.whatsapp.apiUrl.trim().replace(/\/+$/, "");
-          fetch(`${base}/api/stores/${encodeURIComponent(currentSlug)}/orders/${encodeURIComponent(orderRef.id)}/confirmation`, { method: "POST" }).catch(() => {});
+          fetch(`${base}/api/stores/${encodeURIComponent(currentSlug)}/orders/${encodeURIComponent(orderRef.id)}/confirmation`, { method: "POST" })
+            .then(async resp => {
+              const data = await resp.json().catch(() => ({}));
+              if (!resp.ok) throw new Error(data.error || "Falha no envio da confirmação.");
+              if (data.deliveryConfirmed !== true) showToast("Pedido registrado, mas o WhatsApp não confirmou a entrega da confirmação.", "warning");
+            })
+            .catch(e => showToast(`Pedido registrado, mas a confirmação por WhatsApp falhou: ${e.message}`, "warning"));
         } else {
           await dispatchWhatsAppMessage(newOrder.customerPhone, formatTemplateMessage(currentStore.whatsapp?.tplConfirmacao, newOrder), true);
         }
@@ -2327,10 +2335,10 @@
       const o = currentOrders.find(x => (x.firestoreId || x.id) === key);
       if (!o) return;
       if (o.firestoreId) await updateDoc(doc(db, "stores", currentSlug, "orders", o.firestoreId), { status: newStatus });
-      const tplByStatus = { preparo: currentStore.whatsapp?.tplPreparo, entrega: currentStore.whatsapp?.tplEntrega, concluido: currentStore.whatsapp?.tplConcluido };
+      const tplByStatus = { preparo: currentStore.whatsapp?.tplPreparo, pronto: currentStore.whatsapp?.tplPronto || "Olá {cliente}! Seu pedido {pedido} está pronto para sair. 🍔", entrega: currentStore.whatsapp?.tplEntrega, concluido: currentStore.whatsapp?.tplConcluido };
       const tpl = tplByStatus[newStatus];
-      if (tpl && o.customerPhone) await dispatchWhatsAppMessage(o.customerPhone, formatTemplateMessage(tpl, o), false);
       if (newStatus === "pronto") showToast(`Pedido ${o.id} pronto para expedição.`, "success");
+      if (tpl && o.customerPhone) await dispatchWhatsAppMessage(o.customerPhone, formatTemplateMessage(tpl, o), false);
     }
 
     function openOrderDetailModal(key) {
@@ -2512,6 +2520,7 @@
       document.getElementById("wa-api-url").value = w.apiUrl || "https://dona-vina-production.up.railway.app";
       document.getElementById("tpl-confirmacao").value = w.tplConfirmacao || "";
       document.getElementById("tpl-preparo").value = w.tplPreparo || "";
+      document.getElementById("tpl-pronto").value = w.tplPronto || "Olá {cliente}! Seu pedido {pedido} está pronto para sair. 🍔";
       document.getElementById("tpl-entrega").value = w.tplEntrega || "";
       document.getElementById("tpl-concluido").value = w.tplConcluido || "";
       document.getElementById("bot-enabled-toggle").checked = w.botEnabled !== false;
@@ -2527,6 +2536,7 @@
       currentStore.whatsapp = {
         ...currentStore.whatsapp, provider: "railway_bridge", apiUrl: document.getElementById("wa-api-url").value.trim(),
         tplConfirmacao: document.getElementById("tpl-confirmacao").value, tplPreparo: document.getElementById("tpl-preparo").value,
+        tplPronto: document.getElementById("tpl-pronto").value,
         tplEntrega: document.getElementById("tpl-entrega").value, tplConcluido: document.getElementById("tpl-concluido").value,
         botEnabled: document.getElementById("bot-enabled-toggle").checked, botWelcome: document.getElementById("bot-msg-welcome").value,
         botPix: document.getElementById("bot-msg-pix").value, botHours: document.getElementById("bot-msg-hours").value,
@@ -2612,8 +2622,13 @@
           });
           const data = await resp.json().catch(() => ({}));
           if (!resp.ok) throw new Error(data.error || "Falha ao enviar mensagem.");
-          if (!silent) showToast("Envio aceito pelo WhatsApp. A integração não fornece confirmação de entrega.", "success");
-          return data;
+          if (data.deliveryConfirmed === false) throw new Error(data.error || "O WhatsApp recusou ou não confirmou a mensagem.");
+          if (data.deliveryConfirmed === true) {
+            if (!silent) showToast(`WhatsApp confirmou a entrega para ${digits}.`, "success");
+          } else if (!silent) {
+            showToast("O WhatsApp aceitou a solicitação, mas não confirmou a entrega. Verifique a conversa no aparelho conectado.", "warning");
+          }
+          return { ...data, ok: true };
         } catch (e) { if (!silent) showToast(e.message, "error"); return { ok: false, error: e.message }; }
       }
     }
