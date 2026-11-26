@@ -1,11 +1,10 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { randomUUID } from 'node:crypto';
 import express from 'express';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import admin from 'firebase-admin';
-import makeWASocket, { Browsers, DisconnectReason, useMultiFileAuthState } from '@whiskeysockets/baileys';
+import makeWASocket, { Browsers, DisconnectReason, generateMessageIDV2, useMultiFileAuthState } from '@whiskeysockets/baileys';
 import pino from 'pino';
 
 const PORT = Number(process.env.PORT || 3000);
@@ -51,33 +50,47 @@ function markAutomated(s, id) { s.automatedMessageIds.add(id); const timer = set
 function failPending(s, error) {
   for (const pending of new Set(s.pendingMessages.values())) pending.finish(error);
 }
-function watchSendResult(s, messageId, slug) {
-  let settled = false, timer;
+function watchSendFailure(s, messageId, slug) {
+  let settled = false, timer, cleanupTimer;
   const ids = new Set([messageId]);
   let pending;
-  const promise = new Promise((resolve, reject) => {
-    const finish = (error, result) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
+  const promise = new Promise((resolve) => {
+    const cleanup = () => {
       for (const id of ids) if (s.pendingMessages.get(id) === pending) s.pendingMessages.delete(id);
-      if (error) reject(error); else resolve(result);
+    };
+    const finish = (error) => {
+      clearTimeout(timer);
+      clearTimeout(cleanupTimer);
+      cleanup();
+      if (!settled) { settled = true; resolve(error || null); }
     };
     pending = { slug, finish };
     s.pendingMessages.set(messageId, pending);
     timer = setTimeout(() => {
-      const error = new Error('O WhatsApp não confirmou a entrega em 20 segundos. Verifique se a sessão continua conectada e tente reenviar.');
-      error.status = 504;
-      finish(error);
-    }, 20_000);
+      if (settled) return;
+      settled = true;
+      resolve(null);
+      // Keep listening briefly for a late rejection without treating missing receipts as a send failure.
+      cleanupTimer = setTimeout(cleanup, 57_000);
+      cleanupTimer.unref();
+    }, 3000);
     timer.unref();
   });
-  promise.catch(() => {});
   return {
     promise,
     addId(id) { if (id && !ids.has(id)) { ids.add(id); s.pendingMessages.set(id, pending); } },
-    cancel(error) { pending.finish(error || new Error('Envio cancelado.')); }
+    cancel() { pending.finish(null); }
   };
+}
+async function resolveRecipientJid(s, jid) {
+  if (!jid.endsWith('@s.whatsapp.net')) return jid;
+  try {
+    const lid = await s.socket?.signalRepository?.lidMapping?.getLIDForPN(jid);
+    if (typeof lid === 'string' && /@(lid|hosted\.lid)$/.test(lid)) return lid;
+  } catch (err) {
+    logger.warn({ err }, 'Could not resolve WhatsApp phone JID to LID; using phone JID');
+  }
+  return jid;
 }
 async function sendAutomated(slug, s, jid, text) {
   return send(slug, jid, text);
@@ -137,13 +150,7 @@ async function start(slug) {
       for (const { key, update } of updates) {
         const pending = key?.id && s.pendingMessages.get(key.id);
         if (!pending) continue;
-        const status = Number(update?.status);
-        if ([3, 4, 5].includes(status)) {
-          logger.info({ slug: pending.slug, messageId: key.id, status }, 'WhatsApp confirmed message delivery');
-          pending.finish(null, { deliveryConfirmed: true, deliveryStatus: status >= 4 ? 'read' : 'delivered' });
-          continue;
-        }
-        if (status !== 0) continue;
+        if (Number(update?.status) !== 0) continue;
         const code = update.messageStubParameters?.find((value) => /^\d+$/.test(String(value)));
         logger.warn({ slug: pending.slug, messageId: key.id, code: code || 'unknown' }, 'WhatsApp rejected an outgoing message');
         pending.finish(new Error(code === '463'
@@ -176,20 +183,24 @@ async function start(slug) {
 async function send(slug, jid, text) {
   const s = sessionFor(slug);
   if (s.state !== 'connected' || !s.socket) { const e = new Error('WhatsApp da loja não está conectado.'); e.status = 503; throw e; }
-  // Keep the direct phone JID and UUID path from the deployment that delivered rider routes.
-  const messageId = randomUUID();
+  const messageId = generateMessageIDV2(s.socket.user?.id);
   markAutomated(s, messageId);
-  const delivery = watchSendResult(s, messageId, slug);
+  const failureWatch = watchSendFailure(s, messageId, slug);
+  let sentId;
   try {
-    const sent = await s.socket.sendMessage(jid, { text }, { messageId });
+    const target = await resolveRecipientJid(s, jid);
+    const sent = await s.socket.sendMessage(target, { text }, { messageId });
     if (!sent?.key?.id) throw new Error('O WhatsApp não retornou a confirmação de aceite do envio.');
-    delivery.addId(sent.key.id);
+    sentId = sent.key.id;
+    failureWatch.addId(sentId);
     markAutomated(s, sent.key.id);
-    const result = await delivery.promise;
-    return { accepted: true, ...result };
+    const sendError = await failureWatch.promise;
+    if (sendError) throw sendError;
+    return { accepted: true, deliveryConfirmed: null };
   } catch (e) {
-    delivery.cancel(e);
+    failureWatch.cancel();
     s.automatedMessageIds.delete(messageId);
+    if (sentId) s.automatedMessageIds.delete(sentId);
     throw e;
   }
 }

@@ -2324,7 +2324,7 @@
               </div>
               <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
                 ${btn}
-                ${o.whatsappStatusNotificationState === "failed" ? `<button type="button" class="btn btn-outline btn-sm" onclick="resendOrderStatusNotification('${key}')">Reenviar aviso WhatsApp</button>` : ""}
+                ${["failed", "accepted"].includes(o.whatsappStatusNotificationState) ? `<button type="button" class="btn btn-outline btn-sm" onclick="resendOrderStatusNotification('${key}')">Reenviar aviso WhatsApp</button>` : ""}
               </div>
             </div>
           </div>`;
@@ -2361,9 +2361,11 @@
           whatsappStatusNotificationError: ""
         });
         const result = await dispatchWhatsAppMessage(order.customerPhone, formatTemplateMessage(tpl, order), true);
-        Object.assign(order, result.ok
+        Object.assign(order, result.ok && result.deliveryConfirmed === true
           ? { whatsappStatusNotificationState: "sent", whatsappStatusNotificationError: "", whatsappStatusNotificationSentAt: Date.now() }
-          : { whatsappStatusNotificationState: "failed", whatsappStatusNotificationError: result.error || "Falha no envio." });
+          : result.ok
+            ? { whatsappStatusNotificationState: "accepted", whatsappStatusNotificationError: "" }
+            : { whatsappStatusNotificationState: "failed", whatsappStatusNotificationError: result.error || "Falha no envio." });
       }
       if (order.firestoreId) await updateDoc(doc(db, "stores", currentSlug, "orders", order.firestoreId), {
         whatsappStatusNotificationState: order.whatsappStatusNotificationState,
@@ -2373,12 +2375,14 @@
       renderAdminOrders();
       if (order.whatsappStatusNotificationState === "failed") showToast("Status atualizado, mas o aviso não chegou. Use Reenviar aviso WhatsApp após corrigir a conexão.", "warning");
       else if (order.whatsappStatusNotificationState === "sent") showToast("WhatsApp confirmou a entrega do aviso ao cliente.", "success");
-      return order.whatsappStatusNotificationState === "sent";
+      else if (order.whatsappStatusNotificationState === "accepted") showToast("Status enviado ao WhatsApp; confirme no aparelho da loja se chegou ao cliente.", "warning");
+      return ["sent", "accepted"].includes(order.whatsappStatusNotificationState);
     }
 
     async function resendOrderStatusNotification(key) {
       const order = currentOrders.find(x => (x.firestoreId || x.id) === key);
       if (!order) return;
+      if (order.whatsappStatusNotificationState === "accepted" && !confirm("O WhatsApp aceitou o envio, mas não confirmou a entrega. Se a mensagem chegou, reenviar pode duplicá-la. Confira a conversa no aparelho conectado. Deseja reenviar mesmo assim?")) return;
       await sendOrderStatusNotification(order);
     }
 
@@ -2678,12 +2682,11 @@
             body: JSON.stringify({ phone: digits, text: message })
           });
           const data = await resp.json().catch(() => ({}));
-          if (!resp.ok) throw new Error(data.error || "Falha ao enviar mensagem.");
-          if (data.deliveryConfirmed !== true) throw new Error(data.error || "O bridge aceitou o pedido, mas não confirmou a entrega pelo WhatsApp.");
+          if (!resp.ok || data.accepted !== true) throw new Error(data.error || "Falha ao enviar mensagem.");
           if (data.deliveryConfirmed === true) {
             if (!silent) showToast(`WhatsApp confirmou a entrega para ${digits}.`, "success");
           } else if (!silent) {
-            showToast("O WhatsApp aceitou a solicitação, mas não confirmou a entrega. Verifique a conversa no aparelho conectado.", "warning");
+            showToast("O WhatsApp aceitou o envio, mas não fornece confirmação de entrega. Confira a conversa no aparelho conectado.", "warning");
           }
           return { ...data, ok: true };
         } catch (e) { if (!silent) showToast(e.message, "error"); return { ok: false, error: e.message }; }
