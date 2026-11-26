@@ -20,7 +20,7 @@ const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
 const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
-app.use(cors({ origin(origin, cb) { if (!origin || origins.has(origin)) return cb(null, true); cb(new Error('Origem não autorizada.')); }, methods: ['GET','POST','OPTIONS'], allowedHeaders: ['Authorization','Content-Type'], maxAge: 600 }));
+app.use(cors({ origin(origin, cb) { if (!origin || origins.has(origin)) return cb(null, true); cb(new Error('Origem não autorizada.')); }, methods: ['GET','POST','DELETE','OPTIONS'], allowedHeaders: ['Authorization','Content-Type'], maxAge: 600 }));
 app.use(express.json({ limit: '100kb' }));
 app.use(rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: true, legacyHeaders: false }));
 
@@ -37,7 +37,7 @@ async function authorize(req, res, next) {
     if (!snap.exists) return res.status(404).json({ error: 'Loja não encontrada.' });
     const email = String(user.email || '').toLowerCase();
     if (email !== MASTER_EMAIL && (!email || email !== String(snap.get('ownerEmail') || '').toLowerCase())) return res.status(403).json({ error: 'Sem acesso a esta loja.' });
-    req.slug = slug; next();
+    req.slug = slug; req.authUser = user; next();
   } catch (e) { res.status(e.status || 401).json({ error: e.status ? e.message : 'Sessão inválida ou expirada.' }); }
 }
 function phoneDigits(value) { let d = String(value || '').replace(/\D/g, ''); if (d.length === 10 || d.length === 11) d = '55' + d; return d.startsWith('55') && d.length >= 12 && d.length <= 13 ? d : null; }
@@ -242,8 +242,66 @@ async function send(slug, jid, text) {
 function brl(v) { return Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
 function orderText(tpl, order, store) {
   const items = (order.items || []).map((i) => String(i.qty || 1) + 'x ' + (i.name || 'Item')).join('\n');
-  const v = { cliente: order.customerName || 'cliente', pedido: order.id || '', itens: items, total: brl(order.total), endereco: order.address || 'Retirada no balcão', tempo: store.eta || '' };
-  return String(tpl || 'Olá {cliente}! Recebemos seu pedido {pedido}. Total: {total}.').replace(/\{(cliente|pedido|itens|total|endereco|tempo)\}/g, (_, k) => v[k]);
+  const v = { cliente: order.customerName || 'cliente', pedido: order.id || '', itens: items, total: brl(order.total), endereco: order.address || 'Retirada no balcão', tempo: store.eta || '', loja: store.name || 'nossa loja' };
+  return String(tpl || 'Olá {cliente}! Recebemos seu pedido {pedido}. Total: {total}.').replace(/\{(cliente|pedido|itens|total|endereco|tempo|loja)\}/g, (_, k) => v[k]);
+}
+
+let reviewFollowupsRunning = false;
+async function processReviewFollowups() {
+  if (reviewFollowupsRunning) return;
+  reviewFollowupsRunning = true;
+  const now = Date.now();
+  try {
+    const staleClaims = await db.collectionGroup('orders').where('reviewFollowupState', '==', 'sending').limit(100).get();
+    for (const item of staleClaims.docs) {
+      const claimedAt = Number(item.get('reviewFollowupClaimedAt') || 0);
+      if (claimedAt && now - claimedAt > 10 * 60_000) {
+        await item.ref.update({ reviewFollowupState: 'pending', reviewFollowupClaimedAt: null });
+      }
+    }
+
+    const dueOrders = await db.collectionGroup('orders').where('reviewFollowupDueAt', '<=', now).limit(100).get();
+    for (const item of dueOrders.docs) {
+      const order = item.data();
+      if (order.reviewFollowupState !== 'pending' || Number(order.reviewFollowupRetryAt || 0) > now) continue;
+      const storeRef = item.ref.parent.parent;
+      const slug = storeRef?.id;
+      if (!slug) continue;
+      const phone = phoneDigits(order.customerPhone);
+      if (!phone) {
+        await item.ref.update({ reviewFollowupState: 'failed', reviewFollowupDueAt: null, reviewFollowupError: 'Pedido sem WhatsApp válido.' });
+        logger.warn({ slug, orderId: order.id }, 'Avaliação pós-entrega não enviada: telefone inválido');
+        continue;
+      }
+      const session = sessionFor(slug);
+      if (session.state !== 'connected' || !session.socket) continue;
+
+      let claimed = false;
+      await db.runTransaction(async (tx) => {
+        const fresh = await tx.get(item.ref);
+        if (!fresh.exists || fresh.get('reviewFollowupState') !== 'pending' || Number(fresh.get('reviewFollowupDueAt') || 0) > now || Number(fresh.get('reviewFollowupRetryAt') || 0) > now) return;
+        tx.update(item.ref, { reviewFollowupState: 'sending', reviewFollowupClaimedAt: now, reviewFollowupError: '' });
+        claimed = true;
+      });
+      if (!claimed) continue;
+
+      try {
+        const storeSnap = await storeRef.get();
+        const store = storeSnap.data() || {};
+        const template = store.whatsapp?.tplReview || 'Olá {cliente}! 😊 Já faz cerca de uma hora que seu pedido {pedido} saiu para entrega. Como foi sua experiência com a {loja}? Se puder, responda com uma nota de 1 a 5. Obrigado!';
+        await send(slug, phone + '@s.whatsapp.net', orderText(template, order, store));
+        await item.ref.update({ reviewFollowupState: 'sent', reviewFollowupDueAt: null, reviewFollowupSentAt: Date.now(), reviewFollowupClaimedAt: null, reviewFollowupRetryAt: null, reviewFollowupError: '' });
+        logger.info({ slug, orderId: order.id }, 'Mensagem de avaliação pós-entrega enviada');
+      } catch (err) {
+        await item.ref.update({ reviewFollowupState: 'pending', reviewFollowupClaimedAt: null, reviewFollowupRetryAt: Date.now() + 5 * 60_000, reviewFollowupError: String(err.message || err).slice(0, 180) }).catch(() => {});
+        logger.error({ err, slug, orderId: order.id }, 'Falha no envio da avaliação pós-entrega');
+      }
+    }
+  } catch (err) {
+    logger.error({ err }, 'Falha ao verificar avaliações pós-entrega pendentes');
+  } finally {
+    reviewFollowupsRunning = false;
+  }
 }
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
@@ -262,6 +320,27 @@ app.post('/api/stores/:slug/whatsapp/send', authorize, async (req, res) => {
   } catch (e) {
     logger.error({ err: e, slug: req.slug, phone }, 'Falha na rota /whatsapp/send');
     res.status(e.status || 502).json({ error: e.message });
+  }
+});
+app.delete('/api/stores/:slug/orders', authorize, async (req, res) => {
+  if (String(req.authUser?.email || '').toLowerCase() !== MASTER_EMAIL) return res.status(403).json({ error: 'Somente a conta Master pode apagar pedidos.' });
+  if (String(req.body?.confirmSlug || '') !== req.slug) return res.status(400).json({ error: 'Confirme o slug da loja para apagar os pedidos.' });
+  try {
+    const orders = db.collection('stores').doc(req.slug).collection('orders');
+    let deleted = 0;
+    while (true) {
+      const snapshot = await orders.limit(400).get();
+      if (snapshot.empty) break;
+      const batch = db.batch();
+      snapshot.docs.forEach((order) => batch.delete(order.ref));
+      await batch.commit();
+      deleted += snapshot.size;
+    }
+    logger.info({ slug: req.slug, deleted, email: req.authUser.email }, 'Pedidos de teste apagados pela conta Master');
+    res.json({ ok: true, deleted });
+  } catch (e) {
+    logger.error({ err: e, slug: req.slug }, 'Falha ao apagar pedidos da loja');
+    res.status(500).json({ error: 'Não foi possível apagar os pedidos desta loja.' });
   }
 });
 // Checkout público: só envia para pedido existente e registra uma confirmação por pedido.
@@ -293,6 +372,8 @@ const server = app.listen(PORT, '0.0.0.0', async () => {
   await fs.mkdir(AUTH_DIR, { recursive: true }); logger.info({ port: PORT }, 'WhatsApp bridge online');
   const entries = await fs.readdir(AUTH_DIR, { withFileTypes: true }).catch(() => []);
   for (const e of entries) if (e.isDirectory() && /^[a-z0-9-]{1,60}$/.test(e.name)) void start(e.name).catch((err) => logger.error({ err, slug: e.name }, 'Falha ao restaurar sessão'));
+  const reviewTimer = setInterval(() => void processReviewFollowups(), 30_000);
+  reviewTimer.unref();
 });
 function shutdown() { server.close(); for (const s of sessions.values()) { clearTimeout(s.timer); s.socket?.end(undefined); } setTimeout(() => process.exit(0), 1000).unref(); }
 process.on('SIGTERM', shutdown); process.on('SIGINT', shutdown);
